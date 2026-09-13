@@ -1,4 +1,4 @@
-﻿import React, { useState } from "react";
+import { useState } from "react";
 import { AnimalHealthProvider } from "../../context/AnimalHealthContext";
 import OverviewTab from "./OverviewTab";
 import AnimalsTab from "./AnimalsTab";

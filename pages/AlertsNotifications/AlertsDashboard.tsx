@@ -1,4 +1,3 @@
-﻿import React from "react";
 import { useAlerts } from "../../context/AlertsContext";
 import { AlertTriangle, AlertCircle, ShieldAlert, Activity, Flame } from "lucide-react";
 

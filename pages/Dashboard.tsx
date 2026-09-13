@@ -1,4 +1,4 @@
-﻿import React, { useState } from "react";
+import { useState } from "react";
 import { 
   AlertTriangle, ShieldCheck, MapPin, 
   Activity, TestTube2, Stethoscope, ArrowRight, Plus, 
@@ -15,7 +15,7 @@ import { Phone } from "lucide-react";
 export default function Dashboard() {
   const { t } = useMultilingual();
   const navigate = useNavigate();
-  const { reports, alerts, totalPopulation, vaccinationCoverage } = useAppContext();
+  const { reports, alerts, vaccinationCoverage } = useAppContext();
   const [trendFilter, setTrendFilter] = useState("30");
 
   const activeOutbreaks = reports.filter(r => r.status !== "Resolved").length;

@@ -1,4 +1,3 @@
-﻿import React from "react";
 import { useVetResponse } from "../../context/VetResponseContext";
 import { AlertCircle, Clock, ShieldAlert, CheckCircle } from "lucide-react";
 

@@ -1,4 +1,3 @@
-﻿import React from "react";
 import type { Disease } from "../../services/DiseaseService";
 import { useMultilingual } from "../../context/MultilingualContext";
 import { useNavigate } from "react-router-dom";

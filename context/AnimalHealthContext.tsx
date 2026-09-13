@@ -1,4 +1,4 @@
-﻿import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect } from "react";
 import { dbService } from "../services/db/IndexedDBService";
 
 export interface Animal {
@@ -11,6 +11,8 @@ export interface Animal {
   ownerName: string;
   village: string;
   district: string;
+  lat?: number;
+  lng?: number;
   healthStatus: "Healthy" | "Under Observation" | "Diseased" | "Critical" | "Recovered";
   riskScore: number;
   syncStatus: "Pending" | "Synced";
@@ -23,6 +25,8 @@ export interface Herd {
   district: string;
   species: string;
   totalAnimals: number;
+  lat?: number;
+  lng?: number;
   healthStatus: string;
   riskScore: number;
   syncStatus: "Pending" | "Synced";

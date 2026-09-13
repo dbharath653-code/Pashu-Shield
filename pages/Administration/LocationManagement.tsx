@@ -1,4 +1,3 @@
-﻿import React from "react";
 import { FolderTree, MapPin, Plus } from "lucide-react";
 
 export default function LocationManagement() {

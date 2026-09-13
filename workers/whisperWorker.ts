@@ -5,8 +5,9 @@ console.log("Whisper Worker started!");
 // Strictly use local models served from public/models/
 env.allowLocalModels = true;
 env.allowRemoteModels = false;
-env.localModelPath = '/models/';
-env.backends.onnx.wasm.wasmPaths = '/wasm/';
+const BASE = import.meta.env.BASE_URL || '/';
+env.localModelPath = `${BASE.replace(/\/+$/, '')}/models/`;
+env.backends.onnx.wasm.wasmPaths = `${BASE.replace(/\/+$/, '')}/wasm/`;
 
 const originalFetch = globalThis.fetch;
 globalThis.fetch = async function(url, options) {
@@ -19,14 +20,14 @@ globalThis.fetch = async function(url, options) {
 };
 
 class PipelineSingleton {
-  static task = 'automatic-speech-recognition';
+  static task = 'automatic-speech-recognition' as const;
   static model = 'Xenova/whisper-tiny';
   static instance: any = null;
 
-  static async getInstance(progress_callback: Function | null = null) {
+  static async getInstance(progress_callback?: (data: any) => void) {
     if (this.instance === null) {
-      // Disable local models, force download from CDN and cache in browser
- this.instance = pipeline(this.task, this.model, { progress_callback });
+      // Models are served locally from public/models/ (see env config above)
+      this.instance = pipeline(this.task, this.model, progress_callback ? { progress_callback } : {});
     }
     return this.instance;
   }

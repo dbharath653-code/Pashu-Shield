@@ -1,4 +1,3 @@
-﻿import React from "react";
 import type { DiseaseTrend } from "../../services/AnalyticsService";
 import { 
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
@@ -62,6 +61,24 @@ export default function AnalyticsCharts({ trends, distribution, labData }: Props
          </div>
       </div>
       
+      {/* Lab Results Chart */}
+      <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200 lg:col-span-2">
+         <h3 className="text-lg font-bold text-gray-900 mb-4">Lab Results Distribution</h3>
+         <div className="h-[300px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+               <PieChart>
+                 <Pie data={pieData} dataKey="value" nameKey="name" innerRadius={70} outerRadius={110} paddingAngle={3}>
+                   {pieData.map((entry) => (
+                     <Cell key={entry.name} fill={entry.color} />
+                   ))}
+                 </Pie>
+                 <Tooltip contentStyle={{ borderRadius: "8px", border: "none", boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)" }} />
+                 <Legend wrapperStyle={{ paddingTop: "20px" }} />
+               </PieChart>
+            </ResponsiveContainer>
+         </div>
+      </div>
+
     </div>
   );
 }

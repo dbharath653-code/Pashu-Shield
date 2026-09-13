@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { dbService } from "../../services/db/IndexedDBService";
 import { Wifi, WifiOff, RefreshCw, CheckCircle, Database, AlertCircle, Clock } from "lucide-react";
 

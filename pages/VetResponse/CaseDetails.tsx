@@ -1,7 +1,7 @@
-﻿import React, { useState } from "react";
+import { useState } from "react";
 import { useVetResponse } from "../../context/VetResponseContext";
 import type { VetCase } from "../../context/VetResponseContext";
-import { ArrowLeft, MapPin, Clipboard, Stethoscope, Save, Clock } from "lucide-react";
+import { ArrowLeft, Clipboard, Stethoscope, Save } from "lucide-react";
 
 export default function CaseDetails({ vetCase, onBack }: { vetCase: VetCase, onBack: () => void }) {
   const { updateCase } = useVetResponse();

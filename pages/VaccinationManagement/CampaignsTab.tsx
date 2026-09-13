@@ -1,6 +1,5 @@
-﻿import React from "react";
 import { useVaccination } from "../../context/VaccinationContext";
-import { Plus, Target, CheckCircle, Clock } from "lucide-react";
+import { Plus, Target } from "lucide-react";
 
 export default function CampaignsTab() {
   const { campaigns } = useVaccination();

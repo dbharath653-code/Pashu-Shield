@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { AnalyticsService } from "../../services/AnalyticsService";
 import type { AnalyticsData, FilterOptions } from "../../services/AnalyticsService";
 import { BarChart3, Download, FileText } from "lucide-react";

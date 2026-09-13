@@ -1,7 +1,7 @@
-﻿import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { AdminService } from "../../services/AdminService";
 import type { AdminUser } from "../../services/AdminService";
-import { Search, Plus, MoreVertical, Edit, ShieldBan, ShieldCheck, Key } from "lucide-react";
+import { Search, Plus, Edit, ShieldBan, ShieldCheck, Key } from "lucide-react";
 
 export default function UserManagement() {
   const [users, setUsers] = useState<AdminUser[]>([]);

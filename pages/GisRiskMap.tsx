@@ -1,8 +1,9 @@
-﻿import React, { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { MapContainer, TileLayer, CircleMarker, Tooltip, GeoJSON } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { Flame, ShieldAlert, ShieldCheck, WifiOff, Wifi, MapPin } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
+import { assetUrl } from '../services/AssetPaths';
 
 export default function GisRiskMap() {
   const { reports } = useAppContext();
@@ -24,12 +25,12 @@ export default function GisRiskMap() {
     window.addEventListener('offline', handleOffline);
 
     // Fetch offline datasets
-    fetch('/maharashtra_locations.json')
+    fetch(assetUrl('maharashtra_locations.json'))
       .then(res => res.json())
       .then(data => setLocationsDict(data))
       .catch(console.error);
 
-    fetch('/maharashtra_state.geojson')
+    fetch(assetUrl('maharashtra_state.geojson'))
       .then(res => res.json())
       .then(data => setGeoJsonData(data))
       .catch(console.error);

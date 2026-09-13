@@ -1,5 +1,4 @@
-﻿import React from "react";
-import { Bell, Search, Menu } from "lucide-react";
+import { Bell, Menu } from "lucide-react";
 import { useAlerts } from "../context/AlertsContext";
 
 export default function Topbar() {
@@ -30,7 +29,9 @@ export default function Topbar() {
           </button>
           
           <div className="flex items-center gap-2 pl-3 border-l border-gray-200">
-            <img src="https://ui-avatars.com/api/?name=Govt+Officer&background=0D8ABC&color=fff" alt="User" className="w-8 h-8 rounded-full" />
+            <div className="w-8 h-8 rounded-full bg-[#0D8ABC] text-white flex items-center justify-center text-xs font-bold" aria-hidden="true">
+              GO
+            </div>
             <div className="hidden md:block">
               <p className="text-sm font-medium text-gray-700">Govt. Officer</p>
             </div>

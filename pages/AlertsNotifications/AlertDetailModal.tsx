@@ -1,17 +1,19 @@
-﻿import React from "react";
 import { useAlerts } from "../../context/AlertsContext";
+import { promptDialog } from "../../services/Dialogs";
 import type { SystemAlert } from "../../context/AlertsContext";
-import { X, MapPin, Activity, ShieldAlert, Cpu, CheckCircle, Clock, UserCheck, PlayCircle } from "lucide-react";
+import { X, MapPin, Cpu, CheckCircle, Clock, UserCheck, PlayCircle } from "lucide-react";
 import { MapContainer, TileLayer, Marker, Popup, Circle } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import { assetUrl } from "../../services/AssetPaths";
 
-// Fix for default marker icons in Leaflet with React
+// Marker icons are served from /leaflet (bundled in public/) so alerts still
+// render on the map when the device has no internet connection.
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
-  iconRetinaUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png",
-  iconUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png",
-  shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png",
+  iconRetinaUrl: assetUrl("leaflet/marker-icon-2x.png"),
+  iconUrl: assetUrl("leaflet/marker-icon.png"),
+  shadowUrl: assetUrl("leaflet/marker-shadow.png"),
 });
 
 interface Props {
@@ -27,7 +29,11 @@ export default function AlertDetailModal({ alert, onClose }: Props) {
   };
 
   const handleAssign = async () => {
-    const officer = prompt("Enter officer name to assign:");
+    const officer = await promptDialog("Enter officer name to assign:", {
+      title: "Assign officer",
+      placeholder: "Officer name",
+      confirmLabel: "Assign",
+    });
     if (officer) {
       await assignOfficer(alert.id, officer);
     }

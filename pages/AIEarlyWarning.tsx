@@ -1,17 +1,19 @@
-﻿import React, { useState, useEffect } from "react";
-import { TrendingUp, Activity, CheckCircle, ShieldAlert, BarChart2, MapPin, Loader2, Info } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { TrendingUp, Activity, CheckCircle, ShieldAlert, BarChart2, Loader2, Info } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from "recharts";
 import { MapContainer, TileLayer, CircleMarker, Popup } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
+import { MLApiService } from "../services/MLApiService";
+import type { ModelPerformance, OutbreakDetection, RiskPrediction, ForecastResult, ClusterResult } from "../services/MLApiService";
 
 export default function AIEarlyWarning() {
   const [activeTab, setActiveTab] = useState("Risk Score");
   const [loading, setLoading] = useState(false);
-  const [prediction, setPrediction] = useState<any>(null);
-  const [metrics, setMetrics] = useState<any>(null);
-  const [outbreak, setOutbreak] = useState<any>(null);
-  const [forecast, setForecast] = useState<any>(null);
-  const [clusters, setClusters] = useState<any>(null);
+  const [prediction, setPrediction] = useState<RiskPrediction | null>(null);
+  const [metrics, setMetrics] = useState<ModelPerformance | null>(null);
+  const [outbreak, setOutbreak] = useState<OutbreakDetection | null>(null);
+  const [forecast, setForecast] = useState<ForecastResult | null>(null);
+  const [clusters, setClusters] = useState<ClusterResult | null>(null);
   const [error, setError] = useState("");
 
   const [formData, setFormData] = useState({
@@ -32,8 +34,9 @@ export default function AIEarlyWarning() {
   });
 
   useEffect(() => {
-    fetch("http://localhost:8000/api/model-performance")
-      .then(res => res.json())
+    // Falls back to the metrics bundled with the client when no backend is reachable,
+    // so a static/PWA-only deployment still reports model provenance.
+    MLApiService.modelPerformance()
       .then(data => setMetrics(data))
       .catch(err => console.error("Model metrics unavailable", err));
   }, []);
@@ -50,50 +53,24 @@ export default function AIEarlyWarning() {
     setLoading(true);
     setError("");
     try {
-      // Predict Risk
-      const pRes = await fetch("http://localhost:8000/api/predict", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData)
-      });
-      if (!pRes.ok) throw new Error("AI Prediction failed");
-      const pData = await pRes.json();
-      setPrediction(pData);
+      const [riskData, outbreakData, forecastData, clusterData] = await Promise.all([
+        MLApiService.predictRisk(formData),
+        MLApiService.detectOutbreak({
+          new_cases: formData.new_cases,
+          cases_growth_rate: formData.cases_growth_rate,
+          deaths: formData.deaths,
+          district: formData.district,
+        }),
+        MLApiService.forecast([10, 15, 22, 35, formData.new_cases], parseInt(formData.time_range)),
+        MLApiService.cluster([formData.district]),
+      ]);
 
-      // Outbreak Detection
-      const oRes = await fetch("http://localhost:8000/api/outbreak-detection", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-           new_cases: formData.new_cases,
-           cases_growth_rate: formData.cases_growth_rate,
-           deaths: formData.deaths,
-           district: formData.district
-        })
-      });
-      if (oRes.ok) setOutbreak(await oRes.json());
-
-      // Forecast
-      const fRes = await fetch("http://localhost:8000/api/forecast", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-           historical_cases: [10, 15, 22, 35, formData.new_cases],
-           horizon: parseInt(formData.time_range)
-        })
-      });
-      if (fRes.ok) setForecast(await fRes.json());
-
-      // Clusters
-      const cRes = await fetch("http://localhost:8000/api/cluster", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ districts: [formData.district] })
-      });
-      if (cRes.ok) setClusters(await cRes.json());
-
-    } catch (err: any) {
-      setError(err.message || "Failed to connect to ML backend.");
+      setPrediction(riskData);
+      setOutbreak(outbreakData);
+      setForecast(forecastData);
+      setClusters(clusterData);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to generate a prediction.");
     } finally {
       setLoading(false);
     }
@@ -117,7 +94,7 @@ export default function AIEarlyWarning() {
                <ResponsiveContainer width="100%" height="100%">
                  <PieChart>
                    <Pie data={pieData} startAngle={180} endAngle={0} innerRadius={60} outerRadius={80} dataKey="value" stroke="none">
-                     {pieData.map((entry, index) => (
+                     {pieData.map((_entry, index) => (
                        <Cell key={`cell-${index}`} fill={index === 0 ? (prediction.risk_level === "High Risk" ? "#ef4444" : prediction.risk_level === "Moderate Risk" ? "#f59e0b" : "#10b981") : COLORS[1]} />
                      ))}
                    </Pie>
@@ -186,6 +163,10 @@ export default function AIEarlyWarning() {
               <div className="flex justify-between items-center border-b border-gray-100 pb-2">
                 <span className="text-sm text-gray-500">Horizon:</span>
                 <span className="text-sm font-semibold text-gray-900">{prediction.prediction_horizon_days} Days</span>
+              </div>
+              <div className="flex justify-between items-center border-b border-gray-100 pb-2">
+                <span className="text-sm text-gray-500">Computed by:</span>
+                <span className="text-sm font-semibold text-gray-900">{prediction.source === "backend" ? "Hosted ML service" : "On-device engine"}</span>
               </div>
               <div className="flex justify-between items-center pb-2">
                 <span className="text-sm text-gray-500">Trend:</span>
@@ -363,10 +344,13 @@ export default function AIEarlyWarning() {
                     <span><strong className="font-bold">Model:</strong> {metrics.model}</span>
                     <span><strong className="font-bold">Accuracy:</strong> {(metrics.accuracy * 100).toFixed(1)}%</span>
                     <span><strong className="font-bold">Samples:</strong> {metrics.training_samples}</span>
+                    <span className={`px-2 rounded-full font-semibold ${metrics.source === "backend" ? "bg-green-100 text-green-800" : "bg-blue-100 text-blue-800"}`}>
+                      {metrics.source === "backend" ? "Hosted ML service" : "On-device fallback"}
+                    </span>
                     <span className="italic text-yellow-600 border-l border-yellow-300 pl-4">Development model — trained on demo data</span>
                  </div>
               ) : (
-                 <div className="text-red-600 font-bold">AI Model Backend Offline — Ensure FastAPI is running.</div>
+                 <div className="text-yellow-800 font-bold">Loading model information…</div>
               )}
            </div>
            

@@ -1,3 +1,5 @@
+import { assetUrl } from './AssetPaths';
+
 export const mlSymptoms = [
   "Difficulty_swallowing", "Lethargy", "Fever", "Diarrhea", "Appetite_loss", "Abnormal_milk", 
   "Weight_loss", "Swelling_neck", "Blisters_on_gums", "Abortion", "Vomiting", "Salivation", 
@@ -52,7 +54,7 @@ export const ReportingService = {
     if (deadMatch) extracted.numberDead = Number(deadMatch[1]);
 
     try {
-        const response = await fetch('/symptomDictionary.json');
+        const response = await fetch(assetUrl('symptomDictionary.json'));
         if (response.ok) {
             const dictionary = await response.json();
             for (const [symId, langs] of Object.entries(dictionary)) {
@@ -91,7 +93,7 @@ export const ReportingService = {
           if (!navigator.onLine) {
             // OFFLINE REVERSE GEOCODING
             try {
-              const res = await fetch('/maharashtra_locations.json');
+              const res = await fetch(assetUrl('maharashtra_locations.json'));
               const districts = await res.json();
               let closest = districts[0];
               let minD = Infinity;
@@ -105,7 +107,7 @@ export const ReportingService = {
                 district: closest.district,
                 state: "Maharashtra"
               });
-            } catch (e) {
+            } catch {
               resolve({ lat: latitude, lng: longitude, village: "Unknown Offline Location", district: "Unknown District", state: "Maharashtra" });
             }
             return;
@@ -125,7 +127,7 @@ export const ReportingService = {
             } else {
                 throw new Error("Geocoding failed");
             }
-          } catch (e) {
+          } catch {
             resolve({
                 lat: latitude,
                 lng: longitude,
@@ -144,30 +146,73 @@ export const ReportingService = {
   },
 
   saveDraft: (data: ReportDraft) => {
-    localStorage.setItem("livestock_report_draft", JSON.stringify(data));
+    try {
+      localStorage.setItem("livestock_report_draft", JSON.stringify(data));
+    } catch (error) {
+      console.warn("Could not persist the report draft", error);
+    }
   },
   
   getDraft: (): ReportDraft | null => {
-    const data = localStorage.getItem("livestock_report_draft");
-    return data ? JSON.parse(data) : null;
+    try {
+      const data = localStorage.getItem("livestock_report_draft");
+      if (!data) return null;
+      const parsed = JSON.parse(data);
+      return parsed && typeof parsed === "object" ? (parsed as ReportDraft) : null;
+    } catch (error) {
+      console.warn("Stored report draft was unreadable and has been cleared", error);
+      try {
+        localStorage.removeItem("livestock_report_draft");
+      } catch {
+        /* storage unavailable */
+      }
+      return null;
+    }
   },
 
   clearDraft: () => {
-    localStorage.removeItem("livestock_report_draft");
+    try {
+      localStorage.removeItem("livestock_report_draft");
+    } catch {
+      /* storage unavailable */
+    }
   },
 
   queueForSync: (report: any) => {
-    const queue = JSON.parse(localStorage.getItem("livestock_sync_queue") || "[]");
+    const queue = ReportingService.getSyncQueue();
     queue.push({...report, syncStatus: "QUEUED", queuedAt: new Date().toISOString()});
-    localStorage.setItem("livestock_sync_queue", JSON.stringify(queue));
+    ReportingService.writeQueue(queue);
   },
 
-  getSyncQueue: () => {
-    return JSON.parse(localStorage.getItem("livestock_sync_queue") || "[]");
+  getSyncQueue: (): any[] => {
+    // Guard against corrupted storage: a bad value must never break the offline
+    // reporting screen, so anything unreadable is reset to an empty queue.
+    try {
+      const raw = localStorage.getItem("livestock_sync_queue");
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (error) {
+      console.warn("Offline queue was unreadable and has been reset", error);
+      try {
+        localStorage.setItem("livestock_sync_queue", "[]");
+      } catch {
+        /* storage unavailable – keep the in-memory value */
+      }
+      return [];
+    }
   },
-  
+
+  writeQueue: (queue: any[]) => {
+    try {
+      localStorage.setItem("livestock_sync_queue", JSON.stringify(queue));
+    } catch (error) {
+      console.warn("Could not persist the offline queue", error);
+    }
+  },
+
   clearSyncQueue: () => {
-    localStorage.setItem("livestock_sync_queue", "[]");
+    ReportingService.writeQueue([]);
   }
 };
 

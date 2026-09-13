@@ -1,4 +1,4 @@
-﻿import React, { useState } from "react";
+import { useState } from "react";
 import type { DistrictStat } from "../../services/AnalyticsService";
 import { Search, Download, ArrowUpDown, ChevronLeft, ChevronRight } from "lucide-react";
 

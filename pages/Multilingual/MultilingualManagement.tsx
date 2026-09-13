@@ -1,4 +1,3 @@
-﻿import React from "react";
 import { useMultilingual } from "../../context/MultilingualContext";
 import { Languages } from "lucide-react";
 import LanguageSettings from "./LanguageSettings";

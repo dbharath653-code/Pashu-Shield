@@ -1,4 +1,4 @@
-﻿import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect } from "react";
 import { en } from "../locales/en";
 import { mr } from "../locales/mr";
 import { dbService } from "../services/db/IndexedDBService";
@@ -55,7 +55,7 @@ export function MultilingualProvider({ children }: { children: React.ReactNode }
 
   const isSpeechAvailable = "webkitSpeechRecognition" in window || "SpeechRecognition" in window;
 
-  const translateText = async (text: string, source: string, target: string): Promise<string> => {
+  const translateText = async (text: string, _source: string, target: string): Promise<string> => {
     // Simulated translation service fallback
     return new Promise(resolve => {
       setTimeout(() => {

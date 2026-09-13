@@ -1,4 +1,4 @@
-﻿import React, { useState } from "react";
+import { useState } from "react";
 import { useLab } from "../../context/LabContext";
 import type { LabSample } from "../../context/LabContext";
 import { Search, Filter, ChevronRight } from "lucide-react";

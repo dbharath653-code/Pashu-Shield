@@ -1,4 +1,3 @@
-﻿import React from "react";
 import AlertsDashboard from "./AlertsDashboard";
 import AlertList from "./AlertList";
 import { Settings, RefreshCw, BellRing } from "lucide-react";

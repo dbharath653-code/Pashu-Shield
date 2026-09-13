@@ -1,6 +1,5 @@
-﻿import React from "react";
 import { useVaccination } from "../../context/VaccinationContext";
-import { ShieldCheck, CalendarClock, AlertTriangle, Syringe, Users, CheckCircle, BarChart } from "lucide-react";
+import { ShieldCheck, CalendarClock, AlertTriangle, Syringe, Users, BarChart } from "lucide-react";
 
 export default function VaccinationDashboard() {
   const { campaigns, vaccinations } = useVaccination();

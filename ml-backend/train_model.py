@@ -6,10 +6,12 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score
 import joblib
 import json
-import os
 from datetime import datetime
+from pathlib import Path
 
-os.makedirs("models", exist_ok=True)
+# Artefacts are written next to this script so training works from any directory.
+MODELS_DIR = Path(__file__).resolve().parent / "models"
+MODELS_DIR.mkdir(parents=True, exist_ok=True)
 
 print("Generating synthetic demo data...")
 np.random.seed(42)
@@ -99,10 +101,10 @@ iso_model = IsolationForest(contamination=0.05, random_state=42)
 iso_model.fit(df[iso_features])
 
 print("Saving models to disk...")
-joblib.dump(rf, "models/rf_model.pkl")
-joblib.dump(scaler, "models/scaler.pkl")
-joblib.dump(iso_model, "models/iso_model.pkl")
-with open("models/metrics.json", "w") as f:
+joblib.dump(rf, MODELS_DIR / "rf_model.pkl")
+joblib.dump(scaler, MODELS_DIR / "scaler.pkl")
+joblib.dump(iso_model, MODELS_DIR / "iso_model.pkl")
+with open(MODELS_DIR / "metrics.json", "w") as f:
     json.dump(metrics, f)
 
 print("Training complete!")

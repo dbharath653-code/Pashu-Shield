@@ -1,12 +1,10 @@
-import React from "react";
 import { useLab } from "../../context/LabContext";
-import { FlaskConical, TestTube, AlertTriangle, CheckCircle, Clock } from "lucide-react";
+import { FlaskConical, TestTube, AlertTriangle, Clock } from "lucide-react";
 
 export default function LabDashboard() {
   const { samples } = useLab();
 
   const total = samples.length;
-  const received = samples.filter(s => s.status === "Received" || s.status === "Accepted").length;
   const inProgress = samples.filter(s => s.status === "Testing").length;
   const pendingVerification = samples.filter(s => s.status === "Result Pending").length;
   const positive = samples.filter(s => s?.tests?.some(t => t.result === "Positive")).length;
@@ -72,7 +70,7 @@ export default function LabDashboard() {
                <div key={s.id} className="flex justify-between items-center p-3 hover:bg-gray-50 rounded-lg border border-gray-100">
                   <div>
                     <p className="font-medium text-gray-900">{s.id}</p>
-                    <p className="text-xs text-gray-500">{s.species} � {s.sampleType}</p>
+                    <p className="text-xs text-gray-500">{s.species} • {s.sampleType}</p>
                   </div>
                   <div className={`text-xs font-bold px-2 py-1 rounded-full ${s.status === "Verified" ? "bg-green-100 text-green-800" : s.status === "Result Pending" ? "bg-yellow-100 text-yellow-800" : "bg-blue-100 text-blue-800"}`}>
                     {s.status}
