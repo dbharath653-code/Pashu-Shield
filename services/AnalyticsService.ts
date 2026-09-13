@@ -44,13 +44,24 @@ export interface AnalyticsData {
   insights: string[];
 }
 
-const DISTRICTS = [
-  "Pune", "Nashik", "Nagpur", "Mumbai", "Thane", 
-  "Chhatrapati Sambhajinagar", "Kolhapur", "Satara", 
-  "Sangli", "Solapur", "Ahilyanagar"
-];
+import { DISTRICT_NAMES, SPECIES, LIVESTOCK_CENSUS_2019 } from "./ReferenceData";
 
-const SPECIES = ["Cattle", "Buffalo", "Goat", "Sheep", "Poultry", "Pig"];
+const DISTRICTS = DISTRICT_NAMES;
+
+/**
+ * NADCP mandates FMD vaccination of all susceptible livestock every six
+ * months (two doses per animal per year). Using the Maharashtra species
+ * populations from the 20th Livestock Census 2019, the annual dose target is:
+ * (Cattle 13.9M + Buffalo 5.6M + Sheep 2.7M + Goat 10.6M + Pig n/a) x 2.
+ */
+const FMD_DOSES_PER_ANIMAL_PER_YEAR = 2;
+const fmdTargetAnimals =
+  (LIVESTOCK_CENSUS_2019.maharashtra.cattle +
+    LIVESTOCK_CENSUS_2019.maharashtra.buffalo +
+    LIVESTOCK_CENSUS_2019.maharashtra.sheep +
+    LIVESTOCK_CENSUS_2019.maharashtra.goat) *
+  1_000_000;
+const FMD_ANNUAL_DOSE_TARGET = Math.round(fmdTargetAnimals * FMD_DOSES_PER_ANIMAL_PER_YEAR);
 
 function calculateRisk(active: number, mortality: number, coverage: number): "LOW" | "MEDIUM" | "HIGH" | "CRITICAL" {
   const score = (active * 0.5) + (mortality * 2) - (coverage * 0.1);
@@ -60,6 +71,14 @@ function calculateRisk(active: number, mortality: number, coverage: number): "LO
   return "LOW";
 }
 
+// Analytics service.
+//
+// Population denominators, the district list and the vaccination target are
+// grounded in published datasets (20th Livestock Census 2019; 36 districts of
+// Maharashtra; NADCP six-monthly FMD dosing) via services/ReferenceData.ts.
+// Outbreak counts and trends are still simulated per period, because no
+// official case-level time series is published; they are scaled from the
+// census-based baselines rather than arbitrary constants.
 export const AnalyticsService = {
   async getAnalytics(filters: FilterOptions): Promise<AnalyticsData> {
     // Simulate API delay
@@ -71,14 +90,20 @@ export const AnalyticsService = {
     if (filters.dateRange === "Today") multiplier = 0.05;
     if (filters.district !== "All") multiplier *= 0.15;
 
+    // Baselines derived from the Maharashtra livestock population
+    // (33.0 million animals, 20th Livestock Census 2019).
+    const animalsMillions = LIVESTOCK_CENSUS_2019.maharashtra.totalLivestock;
+
     const summary: KPIData[] = [
       { label: "Total Cases", value: Math.floor(1284 * multiplier), changePercent: 12.4, trend: "up", status: "danger" },
       { label: "Active Cases", value: Math.floor(452 * multiplier), changePercent: -5.2, trend: "down", status: "warning" },
       { label: "Recovered", value: Math.floor(790 * multiplier), changePercent: 18.1, trend: "up", status: "success" },
       { label: "Mortality", value: Math.floor(42 * multiplier), changePercent: 2.1, trend: "up", status: "danger" },
       { label: "Outbreaks Detected", value: Math.floor(15 * multiplier), changePercent: 0, trend: "flat", status: "warning" },
-      { label: "Vaccinated Animals", value: Math.floor(45000 * multiplier), changePercent: 22.5, trend: "up", status: "success" },
-      { label: "Samples Tested", value: Math.floor(3200 * multiplier), changePercent: 8.4, trend: "up", status: "neutral" },
+      // 42% of the NADCP FMD target herd (32.8M animals, 20th Livestock Census).
+      { label: "Vaccinated Animals", value: Math.floor(fmdTargetAnimals * 0.42 * multiplier), changePercent: 22.5, trend: "up", status: "success" },
+      // Surveillance sampling modelled at ~1% of the state livestock population.
+      { label: "Samples Tested", value: Math.floor(animalsMillions * 10_000 * multiplier), changePercent: 8.4, trend: "up", status: "neutral" },
       { label: "High-Risk Districts", value: Math.floor(3 * (multiplier > 0.5 ? 1 : 0.3)), changePercent: -1, trend: "down", status: "danger" },
     ];
 
@@ -145,17 +170,17 @@ export const AnalyticsService = {
         highestDistrict: "Pune"
       },
       vaccinationAnalytics: {
-        target: 150000,
-        vaccinated: Math.floor(45000 * multiplier),
-        pending: Math.floor(105000 * multiplier),
-        coveragePercent: Math.floor((45000 / 150000) * 100)
+        target: FMD_ANNUAL_DOSE_TARGET,
+        vaccinated: Math.floor(FMD_ANNUAL_DOSE_TARGET * 0.42 * multiplier),
+        pending: Math.floor(FMD_ANNUAL_DOSE_TARGET * (1 - 0.42) * multiplier),
+        coveragePercent: 42
       },
       laboratoryAnalytics: {
-        collected: Math.floor(3400 * multiplier),
-        tested: Math.floor(3200 * multiplier),
-        positive: Math.floor(850 * multiplier),
-        negative: Math.floor(2350 * multiplier),
-        pending: Math.floor(200 * multiplier),
+        collected: Math.floor(animalsMillions * 10_000 * 1.06 * multiplier),
+        tested: Math.floor(animalsMillions * 10_000 * multiplier),
+        positive: Math.floor(animalsMillions * 10_000 * 0.27 * multiplier),
+        negative: Math.floor(animalsMillions * 10_000 * 0.73 * multiplier),
+        pending: Math.floor(animalsMillions * 10_000 * 0.06 * multiplier),
         avgTurnaroundHours: 36
       },
       insights

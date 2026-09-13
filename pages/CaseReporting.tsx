@@ -5,6 +5,7 @@ import type { Report } from '../context/AppContext';
 import { ReportingService, mlSymptoms } from '../services/ReportingService';
 import type { ReportDraft } from '../services/ReportingService';
 import { localMLService } from '../services/LocalMLService';
+import { DISTRICT_NAMES } from '../services/ReferenceData';
 
 // HTML number inputs always hand back strings; ReportDraft expects numbers or "".
 const toFloatOrEmpty = (value: string): number | "" => {
@@ -425,7 +426,13 @@ export default function CaseReporting() {
                      </div>
                      <div>
                        <label className="text-sm font-medium text-gray-700">District</label>
-                       <input type="text" value={formData.district} onChange={e => setFormData({...formData, district: e.target.value})} className="mt-1 block w-full rounded-md border p-2" />
+                       <input type="text" list="district-options" value={formData.district} onChange={e => setFormData({...formData, district: e.target.value})} className="mt-1 block w-full rounded-md border p-2" />
+                       {/* All 36 districts of Maharashtra (Govt. of Maharashtra) */}
+                       <datalist id="district-options">
+                         {DISTRICT_NAMES.map(district => (
+                           <option key={district} value={district} />
+                         ))}
+                       </datalist>
                      </div>
                      <div className="col-span-2">
                        <label className="text-sm font-medium text-gray-700">Village</label>

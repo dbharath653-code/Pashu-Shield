@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useAnimalHealth } from "../../context/AnimalHealthContext";
 import type { Herd } from "../../context/AnimalHealthContext";
 import { ArrowLeft, Save, MapPin } from "lucide-react";
+import { DISTRICT_NAMES } from "../../services/ReferenceData";
 
 export default function HerdRegistration({ onBack }: { onBack: () => void }) {
   const { addHerd } = useAnimalHealth();
@@ -110,7 +111,13 @@ export default function HerdRegistration({ onBack }: { onBack: () => void }) {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">District</label>
-              <input type="text" value={formData.district} onChange={e => setFormData({...formData, district: e.target.value})} className="w-full border-gray-300 rounded-md shadow-sm p-2 border" />
+              <input type="text" list="district-options" placeholder="Select district" value={formData.district} onChange={e => setFormData({...formData, district: e.target.value})} className="w-full border-gray-300 rounded-md shadow-sm p-2 border" />
+              {/* All 36 districts of Maharashtra (Govt. of Maharashtra) */}
+              <datalist id="district-options">
+                {DISTRICT_NAMES.map(district => (
+                  <option key={district} value={district} />
+                ))}
+              </datalist>
             </div>
           </div>
         </section>

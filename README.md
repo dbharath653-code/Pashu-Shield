@@ -152,3 +152,23 @@ npm run smoke       # renders every route in jsdom + exercises the offline AI an
 
 The smoke test fails the build if any route throws, if the AI screen cannot produce a
 prediction without a backend, or if a submitted case report does not appear under *My Reports*.
+
+---
+
+## 8. Reference data (published datasets)
+
+The app's reference data comes from published government sources, consolidated in
+`services/ReferenceData.ts` (and `public/maharashtra_locations.json` for map locations):
+
+| Dataset | Source |
+| --- | --- |
+| Species populations (India + Maharashtra) | 20th Livestock Census 2019, DAHD, Govt. of India |
+| Districts (all 36, HQ coordinates, divisions) | Revenue & Forest Department, Govt. of Maharashtra |
+| Indigenous breeds (Gir, Dangi, Deoni, Khillari, Pandharpuri, Osmanabadi, …) | ICAR-NBAGR National Register of Indigenous Livestock Breeds |
+| Disease catalog (FMD, LSD, PPR, Brucellosis, HS, BQ, Anthrax, Rabies, …) | DAHD "Livestock Health & Disease Control" reports; WOAH listed-disease framework |
+| Vaccination schedule & campaign targets | NADCP (six-monthly FMD dosing; one-time Brucellosis dose for 4–8-month female bovine calves; PPR eradication by 2030) |
+
+Outbreak *counts* on the Analytics screen are still simulated (no official case-level time
+series is published), but their denominators, district list and vaccination targets are
+derived from the datasets above. Sample records (seeded animals/cases/samples) are labelled
+as such in code until a live backend is connected.
