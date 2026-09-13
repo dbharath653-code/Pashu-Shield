@@ -52,7 +52,8 @@ export function AnimalHealthProvider({ children }: { children: React.ReactNode }
       const loadedAnimals = await dbService.getAll("animals");
       const loadedHerds = await dbService.getAll("herds");
       
-      // Seed some mock data if empty for demo purposes
+      // Sample records until a live backend is connected; reference values
+      // (breed, district) come from published datasets.
       if (loadedAnimals.length === 0) {
         const mockAnimal: Animal = {
           id: "MH-PUN-CAT-001", tagId: "TAG-9921", species: "Cattle", breed: "Gir", sex: "Female", age: 4, ownerName: "Ramesh Patil", village: "Shirur", district: "Pune", healthStatus: "Under Observation", riskScore: 68, syncStatus: "Synced"

@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useAnimalHealth } from "../../context/AnimalHealthContext";
 import type { Animal } from "../../context/AnimalHealthContext";
 import { ArrowLeft, Save, MapPin } from "lucide-react";
+import { DISTRICT_NAMES, getBreedsForSpecies } from "../../services/ReferenceData";
 
 export default function AnimalRegistration({ onBack }: { onBack: () => void }) {
   const { addAnimal } = useAnimalHealth();
@@ -87,7 +88,13 @@ export default function AnimalRegistration({ onBack }: { onBack: () => void }) {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Breed</label>
-              <input type="text" value={formData.breed} onChange={e => setFormData({...formData, breed: e.target.value})} className="w-full border-gray-300 rounded-md shadow-sm p-2 border" />
+              <input type="text" list="breed-options" placeholder="e.g. Gir, Pandharpuri…" value={formData.breed} onChange={e => setFormData({...formData, breed: e.target.value})} className="w-full border-gray-300 rounded-md shadow-sm p-2 border" />
+              {/* ICAR-NBAGR registered indigenous breeds found in Maharashtra */}
+              <datalist id="breed-options">
+                {getBreedsForSpecies(formData.species).map(breed => (
+                  <option key={breed} value={breed} />
+                ))}
+              </datalist>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Sex</label>
@@ -121,7 +128,13 @@ export default function AnimalRegistration({ onBack }: { onBack: () => void }) {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">District</label>
-              <input type="text" value={formData.district} onChange={e => setFormData({...formData, district: e.target.value})} className="w-full border-gray-300 rounded-md shadow-sm p-2 border" />
+              <input type="text" list="district-options" placeholder="Select district" value={formData.district} onChange={e => setFormData({...formData, district: e.target.value})} className="w-full border-gray-300 rounded-md shadow-sm p-2 border" />
+              {/* All 36 districts of Maharashtra (Govt. of Maharashtra) */}
+              <datalist id="district-options">
+                {DISTRICT_NAMES.map(district => (
+                  <option key={district} value={district} />
+                ))}
+              </datalist>
             </div>
           </div>
         </section>

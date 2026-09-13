@@ -1,4 +1,4 @@
-﻿import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect } from "react";
 import { dbService } from "../services/db/IndexedDBService";
 
 export interface VaccinationCampaign {
@@ -53,21 +53,25 @@ export function VaccinationProvider({ children }: { children: React.ReactNode })
       const loadedVaccinations = await dbService.getAll("vaccinations");
 
       if (loadedCampaigns.length === 0) {
-        const mockCampaign: VaccinationCampaign = {
+        // Seed campaign modelled on the NADCP six-monthly FMD drive:
+        // 100% vaccination target for the species covered, population derived
+        // from the 20th Livestock Census 2019 (Maharashtra cattle + buffalo
+        // 19.5M shared across 36 districts; ~2.17M for a 4-district drive).
+        const seedCampaign: VaccinationCampaign = {
           id: "CAMP-MH-2026-FMD",
           name: "Maharashtra State FMD Drive",
-          disease: "Foot-and-Mouth Disease",
-          vaccine: "Raksha Ovac",
+          disease: "Foot-and-Mouth Disease (FMD)",
+          vaccine: "Trivalent FMD vaccine (O, A, Asia-1)",
           species: ["Cattle", "Buffalo"],
           targetDistricts: ["Pune", "Nashik", "Satara", "Sangli"],
           startDate: new Date(Date.now() - 30 * 86400000).toISOString(), // 30 days ago
           endDate: new Date(Date.now() + 60 * 86400000).toISOString(),
           status: "Active",
-          targetPopulation: 1500000,
-          coverageTargetPercent: 95
+          targetPopulation: 2170000,
+          coverageTargetPercent: 100
         };
-        await dbService.save("vaccination_campaigns", mockCampaign);
-        setCampaigns([mockCampaign]);
+        await dbService.save("vaccination_campaigns", seedCampaign);
+        setCampaigns([seedCampaign]);
       } else {
         setCampaigns(loadedCampaigns);
       }
