@@ -114,6 +114,33 @@ export const ReportingService = {
           }
 
           try {
+            // Prefer Google Geocoding when an API key is configured
+            // (VITE_GOOGLE_MAPS_API_KEY); otherwise fall back to Nominatim.
+            const googleKey = import.meta.env?.VITE_GOOGLE_MAPS_API_KEY as string | undefined;
+            if (googleKey) {
+              const gRes = await fetch(
+                `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${googleKey}`
+              );
+              if (gRes.ok) {
+                const gData = await gRes.json();
+                if (gData.status === "OK" && gData.results?.length > 0) {
+                  const components: { long_name: string; types: string[] }[] =
+                    gData.results[0].address_components ?? [];
+                  const pick = (...types: string[]) =>
+                    components.find((c) => c.types?.some((t) => types.includes(t)))?.long_name;
+                  resolve({
+                    lat: latitude,
+                    lng: longitude,
+                    village: pick("village", "locality", "sublocality", "neighborhood") || "Unknown Location",
+                    district: pick("administrative_area_level_2", "administrative_area_level_3") || "Unknown District",
+                    state: pick("administrative_area_level_1") || "Maharashtra"
+                  });
+                  return;
+                }
+              }
+              // Key missing/failed/quota exceeded -> fall through to Nominatim.
+            }
+
             const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
             if (res.ok) {
                 const data = await res.json();
