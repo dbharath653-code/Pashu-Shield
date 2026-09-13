@@ -1,0 +1,206 @@
+{
+  "fever": {
+    "en": [
+      "fever",
+      "hot",
+      "temperature"
+    ],
+    "hi": [
+      "बुखार",
+      "bukhar"
+    ],
+    "mr": [
+      "ताप",
+      "taap"
+    ],
+    "te": [
+      "జ్వరం",
+      "jvaram"
+    ]
+  },
+  "lethargy": {
+    "en": [
+      "lethargy",
+      "weak",
+      "tired",
+      "inactive"
+    ],
+    "hi": [
+      "सुस्ती",
+      "kamzori"
+    ],
+    "mr": [
+      "अशक्तपणा",
+      "thakwa"
+    ],
+    "te": [
+      "నీరసం",
+      "neerasam"
+    ]
+  },
+  "appetite_loss": {
+    "en": [
+      "not eating",
+      "loss of appetite",
+      "no appetite"
+    ],
+    "hi": [
+      "भूख नहीं",
+      "bhukh nahi"
+    ],
+    "mr": [
+      "भूक न लागणे",
+      "bhuk nahi"
+    ],
+    "te": [
+      "ఆకలి లేదు",
+      "aakali ledu"
+    ]
+  },
+  "salivation": {
+    "en": [
+      "salivation",
+      "drooling",
+      "foam",
+      "spit"
+    ],
+    "hi": [
+      "लार",
+      "laar"
+    ],
+    "mr": [
+      "लाळ",
+      "laal"
+    ],
+    "te": [
+      "చొంగ",
+      "chonga"
+    ]
+  },
+  "lameness": {
+    "en": [
+      "lameness",
+      "limping",
+      "cant walk"
+    ],
+    "hi": [
+      "लंगड़ापन",
+      "langdana"
+    ],
+    "mr": [
+      "लंगडणे",
+      "langadne"
+    ],
+    "te": [
+      "కుంటుతున్నది",
+      "kuntutunnadi"
+    ]
+  },
+  "mouth_ulcers": {
+    "en": [
+      "mouth ulcers",
+      "blisters in mouth",
+      "sores in mouth"
+    ],
+    "hi": [
+      "मुंह में छाले",
+      "chhale"
+    ],
+    "mr": [
+      "तोंडात फोड",
+      "tondat phod"
+    ],
+    "te": [
+      "నోటి పుండ్లు",
+      "noti pundlu"
+    ]
+  },
+  "milk_decrease": {
+    "en": [
+      "milk decrease",
+      "less milk",
+      "drop in milk"
+    ],
+    "hi": [
+      "दूध कम",
+      "doodh kam"
+    ],
+    "mr": [
+      "दूध कमी",
+      "dudh kami"
+    ],
+    "te": [
+      "పాలు తగ్గడం",
+      "paalu taggadam"
+    ]
+  },
+  "cough": {
+    "en": [
+      "cough",
+      "coughing"
+    ],
+    "hi": [
+      "खांसी",
+      "khasi"
+    ],
+    "mr": [
+      "खोकला",
+      "khokala"
+    ],
+    "te": [
+      "దగ్గు",
+      "daggu"
+    ]
+  },
+  "difficulty_breathing": {
+    "en": [
+      "difficulty breathing",
+      "panting",
+      "breathing hard"
+    ],
+    "hi": [
+      "सांस लेने में दिक्कत"
+    ],
+    "mr": [
+      "श्वास घेण्यास त्रास"
+    ],
+    "te": [
+      "శ్వాస తీసుకోవడంలో ఇబ్బంది"
+    ]
+  },
+  "skin_lesions": {
+    "en": [
+      "skin lesions",
+      "nodules",
+      "lumps",
+      "bumps"
+    ],
+    "hi": [
+      "त्वचा पर गांठें"
+    ],
+    "mr": [
+      "त्वचेवर गाठी"
+    ],
+    "te": [
+      "చర్మంపై గడ్డలు"
+    ]
+  },
+  "diarrhea": {
+    "en": [
+      "diarrhea",
+      "loose motion"
+    ],
+    "hi": [
+      "दस्त",
+      "dast"
+    ],
+    "mr": [
+      "जुलाब",
+      "julab"
+    ],
+    "te": [
+      "విరేచనాలు",
+      "virechanalu"
+    ]
+  }
+}
