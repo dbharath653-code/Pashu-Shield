@@ -1,8 +1,8 @@
-﻿import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useMultilingual } from "../../context/MultilingualContext";
 import { DiseaseService } from "../../services/DiseaseService";
 import type { Disease } from "../../services/DiseaseService";
-import { Info, Search, ShieldAlert, Activity, Filter, Syringe, Virus, MapPin, X } from "lucide-react";
+import { Info, Search, ShieldAlert, Filter, Syringe, Virus, X } from "lucide-react";
 import DiseaseDetailModal from "./DiseaseDetailModal";
 import DiseaseCard from "./DiseaseCard";
 

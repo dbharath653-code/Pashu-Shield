@@ -1,4 +1,4 @@
-﻿import React, { useState } from "react";
+import React, { useState } from "react";
 import { useAnimalHealth } from "../../context/AnimalHealthContext";
 import type { Herd } from "../../context/AnimalHealthContext";
 import { ArrowLeft, Save, MapPin } from "lucide-react";
@@ -25,6 +25,8 @@ export default function HerdRegistration({ onBack }: { onBack: () => void }) {
       district: formData.district || "Unknown",
       species: formData.species!,
       totalAnimals: Number(formData.totalAnimals),
+      lat: formData.lat,
+      lng: formData.lng,
       healthStatus: formData.healthStatus || "Low Risk",
       riskScore: formData.healthStatus === "High Risk" ? 85 : 20,
       syncStatus: navigator.onLine ? "Synced" : "Pending"
@@ -36,9 +38,20 @@ export default function HerdRegistration({ onBack }: { onBack: () => void }) {
 
   const handleUseLocation = () => {
     if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition((pos) => {
-        setFormData(prev => ({...prev, village: "GPS Acquired", district: "Pune"}));
-      });
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setFormData(prev => ({
+            ...prev,
+            village: prev.village || "GPS Acquired",
+            district: prev.district || "Pune",
+            lat: Number(pos.coords.latitude.toFixed(6)),
+            lng: Number(pos.coords.longitude.toFixed(6)),
+          }));
+        },
+        () => {
+          setFormData(prev => ({...prev, village: prev.village || "Location unavailable"}));
+        }
+      );
     }
   };
 

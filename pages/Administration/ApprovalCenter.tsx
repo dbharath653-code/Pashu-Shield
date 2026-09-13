@@ -1,5 +1,6 @@
-﻿import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { AdminService } from "../../services/AdminService";
+import { promptDialog } from "../../services/Dialogs";
 import type { ApprovalRequest } from "../../services/AdminService";
 import { Check, X, Clock } from "lucide-react";
 
@@ -16,8 +17,12 @@ export default function ApprovalCenter() {
      setRequests(prev => prev.filter(r => r.id !== id));
   };
 
-  const handleReject = (id: string) => {
-     const reason = prompt("Enter rejection reason:");
+  const handleReject = async (id: string) => {
+     const reason = await promptDialog("Enter rejection reason:", {
+        title: "Reject request",
+        placeholder: "Reason for rejection",
+        confirmLabel: "Reject",
+     });
      if (reason) {
         alert("Rejected request " + id + " for: " + reason);
         setRequests(prev => prev.filter(r => r.id !== id));

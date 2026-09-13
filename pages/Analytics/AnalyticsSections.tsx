@@ -1,4 +1,3 @@
-﻿import React from "react";
 import type { AnalyticsData } from "../../services/AnalyticsService";
 import { useNavigate } from "react-router-dom";
 import { Map as MapIcon, ShieldAlert, Activity, CheckCircle, Syringe, TestTube, AlertTriangle } from "lucide-react";

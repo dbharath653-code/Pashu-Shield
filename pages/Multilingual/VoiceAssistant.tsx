@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useMultilingual } from "../../context/MultilingualContext";
 import { Mic, Square, MessageSquare, PlayCircle, Loader2 } from "lucide-react";
 

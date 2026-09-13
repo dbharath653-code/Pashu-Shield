@@ -1,4 +1,4 @@
-﻿import React, { useState } from "react";
+import { useState } from "react";
 import { useVaccination } from "../../context/VaccinationContext";
 import { Search, Filter, QrCode } from "lucide-react";
 

@@ -5,8 +5,8 @@ import pandas as pd
 import numpy as np
 import joblib
 import json
-import os
 from datetime import datetime, timedelta
+from pathlib import Path
 
 app = FastAPI(title="Livestock Health Surveillance AI API")
 
@@ -18,13 +18,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Models live next to this file so the API works from any working directory.
+MODELS_DIR = Path(__file__).resolve().parent / "models"
+
 # Load models safely
 def load_models():
     try:
-        rf_model = joblib.load("models/rf_model.pkl")
-        scaler = joblib.load("models/scaler.pkl")
-        iso_model = joblib.load("models/iso_model.pkl")
-        with open("models/metrics.json", "r") as f:
+        rf_model = joblib.load(MODELS_DIR / "rf_model.pkl")
+        scaler = joblib.load(MODELS_DIR / "scaler.pkl")
+        iso_model = joblib.load(MODELS_DIR / "iso_model.pkl")
+        with open(MODELS_DIR / "metrics.json", "r") as f:
             metrics = json.load(f)
         return rf_model, scaler, iso_model, metrics
     except Exception as e:

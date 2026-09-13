@@ -1,6 +1,16 @@
-﻿import React, { createContext, useContext, useState, useMemo } from 'react';
+import React, { createContext, useContext, useState } from 'react';
 
 // Define Types
+export type ReportStatus =
+  | 'Suspected'
+  | 'Confirmed'
+  | 'Under Review'
+  | 'Resolved'
+  // Statuses produced by the offline-first submission flow
+  | 'SUBMITTED'
+  | 'QUEUED'
+  | 'SYNCED';
+
 export interface Report {
   id: string;
   date: string;
@@ -10,7 +20,7 @@ export interface Report {
   district: string;
   village: string;
   symptoms: string[];
-  status: 'Suspected' | 'Confirmed' | 'Under Review' | 'Resolved';
+  status: ReportStatus;
   disease: string;
 }
 

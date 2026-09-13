@@ -1,10 +1,21 @@
-﻿import React, { useState, useEffect, useRef } from 'react';
-import { Upload, MapPin, Send, Mic, Edit2, CheckCircle, AlertTriangle, Save, WifiOff, RefreshCw, Download, Check } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { MapPin, Mic, Edit2, CheckCircle, AlertTriangle, Save, WifiOff, RefreshCw, Download, Check } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
-import { useNavigate } from 'react-router-dom';
+import type { Report } from '../context/AppContext';
 import { ReportingService, mlSymptoms } from '../services/ReportingService';
 import type { ReportDraft } from '../services/ReportingService';
 import { localMLService } from '../services/LocalMLService';
+
+// HTML number inputs always hand back strings; ReportDraft expects numbers or "".
+const toFloatOrEmpty = (value: string): number | "" => {
+  if (value.trim() === '') return '';
+  const parsed = Number(value);
+  return Number.isNaN(parsed) ? '' : parsed;
+};
+const toIntOrEmpty = (value: string): number | "" => {
+  const parsed = toFloatOrEmpty(value);
+  return parsed === '' ? '' : Math.trunc(parsed);
+};
 
 const diseaseKnowledgeBase: Record<string, { description: string, remedies: string }> = {
   "LSD": { description: "Lumpy Skin Disease is a viral infection causing fever and skin nodules.", remedies: "Separate the infected animal immediately. Apply neem oil on skin lesions." },
@@ -17,7 +28,6 @@ const diseaseKnowledgeBase: Record<string, { description: string, remedies: stri
 };
 
 export default function CaseReporting() {
-  const navigate = useNavigate();
   const { reports, addReport } = useAppContext();
 
   const [step, setStep] = useState(1);
@@ -99,10 +109,20 @@ export default function CaseReporting() {
   }, [formData, step, activeTab]);
 
   const syncOfflineReports = () => {
-      const queue = ReportingService.getSyncQueue();
+      const queue: (ReportDraft & { id?: string })[] = ReportingService.getSyncQueue();
       if (queue.length > 0) {
-          queue.forEach((r: any) => {
-             addReport({...r, status: 'SYNCED'} as any);
+          queue.forEach((r) => {
+             addReport({
+               date: new Date().toISOString().split('T')[0],
+               species: r.species || 'Unknown',
+               numberAffected: Number(r.numberAffected) || 0,
+               numberDead: Number(r.numberDead) || 0,
+               district: r.district || 'Unknown',
+               village: r.village || 'Unknown',
+               symptoms: r.symptoms || [],
+               status: 'SYNCED',
+               disease: r.disease || 'Unknown',
+             });
           });
           ReportingService.clearSyncQueue();
           alert('Successfully synchronized offline reports.');
@@ -170,7 +190,7 @@ export default function CaseReporting() {
       setIsListening(true);
       setTranscript('Listening... Speak your report, then click Stop.');
       speak('Listening.');
-    } catch (e) {
+    } catch {
       alert('Microphone access denied or unavailable.');
     }
   };
@@ -201,13 +221,13 @@ export default function CaseReporting() {
       const loc = await ReportingService.getLocation();
       setFormData(prev => ({...prev, lat: loc.lat, lng: loc.lng, village: loc.village, district: loc.district, state: loc.state}));
       setTranscript(`Location found: ${loc.village}, ${loc.district}`);
-    } catch (e) {
+    } catch {
       alert("Location permission unavailable. Enter location manually.");
     }
   };
 
   const handlePredictDisease = async () => {
-    isOffline ? speak("Analyzing locally without internet...") : speak("Analyzing symptoms...");
+    speak(isOffline ? "Analyzing locally without internet..." : "Analyzing symptoms...");
     setIsPredicting(true);
     try {
         if (!localMLService.isModelReady()) {
@@ -239,12 +259,23 @@ export default function CaseReporting() {
   };
 
   const handleSubmit = () => {
-    const reportData = { ...formData, date: new Date().toISOString().split('T')[0], status: isOffline ? 'QUEUED' : 'SUBMITTED', id: Date.now().toString() };
+    const report: Report = {
+      id: Date.now().toString(),
+      date: new Date().toISOString().split('T')[0],
+      species: formData.species || 'Unknown',
+      numberAffected: Number(formData.numberAffected) || 0,
+      numberDead: Number(formData.numberDead) || 0,
+      district: formData.district || 'Unknown',
+      village: formData.village || 'Unknown',
+      symptoms: formData.symptoms || [],
+      status: isOffline ? 'QUEUED' : 'SUBMITTED',
+      disease: formData.disease || 'Unknown',
+    };
     if (isOffline) {
-        ReportingService.queueForSync(reportData);
+        ReportingService.queueForSync(report);
         speak("Saved offline. Will sync when network returns.");
     } else {
-        addReport(reportData as any);
+        addReport(report);
         speak("Report submitted successfully.");
     }
     ReportingService.clearDraft();
@@ -342,21 +373,21 @@ export default function CaseReporting() {
                      </div>
                      <div>
                        <label className="text-sm font-medium text-gray-700">Age (Years)</label>
-                       <input type="number" value={formData.age} onChange={e => setFormData({...formData, age: e.target.value})} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2" />
+                       <input type="number" value={formData.age} onChange={e => setFormData({...formData, age: toIntOrEmpty(e.target.value)})} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2" />
                        {errors.age && <p className="text-red-500 text-xs mt-1">{errors.age}</p>}
                      </div>
                      <div>
                        <label className="text-sm font-medium text-gray-700">Temperature (°C)</label>
-                       <input type="number" value={formData.temperature} onChange={e => setFormData({...formData, temperature: e.target.value})} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2" />
+                       <input type="number" value={formData.temperature} onChange={e => setFormData({...formData, temperature: toFloatOrEmpty(e.target.value)})} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2" />
                      </div>
                      <div>
                        <label className="text-sm font-medium text-gray-700">Number Affected *</label>
-                       <input type="number" min="1" value={formData.numberAffected} onChange={e => setFormData({...formData, numberAffected: e.target.value})} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2" />
+                       <input type="number" min="1" value={formData.numberAffected} onChange={e => setFormData({...formData, numberAffected: toIntOrEmpty(e.target.value)})} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2" />
                        {errors.numberAffected && <p className="text-red-500 text-xs mt-1">{errors.numberAffected}</p>}
                      </div>
                      <div>
                        <label className="text-sm font-medium text-gray-700">Number Dead *</label>
-                       <input type="number" min="0" value={formData.numberDead} onChange={e => setFormData({...formData, numberDead: e.target.value})} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2" />
+                       <input type="number" min="0" value={formData.numberDead} onChange={e => setFormData({...formData, numberDead: toIntOrEmpty(e.target.value)})} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2" />
                        {errors.numberDead && <p className="text-red-500 text-xs mt-1">{errors.numberDead}</p>}
                      </div>
                    </div>

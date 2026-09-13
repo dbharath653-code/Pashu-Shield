@@ -1,3 +1,5 @@
+import { assetUrl } from './AssetPaths';
+
 export interface ModelWeights {
   classes: string[];
   coef: number[][];
@@ -21,12 +23,12 @@ export class LocalMLService {
   async loadModel() {
     if (this.weights) return;
     try {
-      const response = await fetch('/model_weights.json');
+      const response = await fetch(assetUrl('model_weights.json'));
       if (response.ok) {
         this.weights = await response.json();
       }
-    } catch (e) {
-      console.warn('Failed to load local ML model', e);
+    } catch (error) {
+      console.warn('Failed to load local ML model', error);
     }
   }
 
@@ -50,7 +52,10 @@ export class LocalMLService {
     const speciesIndex = this.weights.cat_categories[0].indexOf(data.Species);
     const genderIndex = this.weights.cat_categories[1].indexOf(data.Gender);
     
-    const cat_features = new Array(this.weights.cat_categories[0].length + this.weights.cat_categories[1].length).fill(0);
+    const cat_features = Array.from(
+      { length: this.weights.cat_categories[0].length + this.weights.cat_categories[1].length },
+      () => 0
+    );
     if (speciesIndex >= 0) cat_features[speciesIndex] = 1;
     if (genderIndex >= 0) cat_features[this.weights.cat_categories[0].length + genderIndex] = 1;
 

@@ -1,4 +1,4 @@
-﻿import React, { useState } from "react";
+import React, { useState } from "react";
 import { useAnimalHealth } from "../../context/AnimalHealthContext";
 import type { Animal } from "../../context/AnimalHealthContext";
 import { ArrowLeft, Save, MapPin } from "lucide-react";
@@ -30,6 +30,8 @@ export default function AnimalRegistration({ onBack }: { onBack: () => void }) {
       ownerName: formData.ownerName || "Unknown",
       village: formData.village || "Unknown",
       district: formData.district || "Unknown",
+      lat: formData.lat,
+      lng: formData.lng,
       healthStatus: formData.healthStatus as any,
       riskScore: formData.healthStatus === "Healthy" ? 10 : 65,
       syncStatus: navigator.onLine ? "Synced" : "Pending"
@@ -41,9 +43,20 @@ export default function AnimalRegistration({ onBack }: { onBack: () => void }) {
 
   const handleUseLocation = () => {
     if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition((pos) => {
-        setFormData(prev => ({...prev, village: "GPS Acquired", district: "Pune"}));
-      });
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setFormData(prev => ({
+            ...prev,
+            village: prev.village || "GPS Acquired",
+            district: prev.district || "Pune",
+            lat: Number(pos.coords.latitude.toFixed(6)),
+            lng: Number(pos.coords.longitude.toFixed(6)),
+          }));
+        },
+        () => {
+          setFormData(prev => ({...prev, village: prev.village || "Location unavailable"}));
+        }
+      );
     }
   };
 

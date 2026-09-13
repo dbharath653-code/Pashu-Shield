@@ -1,7 +1,7 @@
-﻿import React, { useState } from "react";
+import { useState } from "react";
 import { useVetResponse } from "../../context/VetResponseContext";
 import type { VetCase } from "../../context/VetResponseContext";
-import { Search, Filter, ChevronRight, AlertTriangle } from "lucide-react";
+import { Search, Filter, ChevronRight } from "lucide-react";
 
 export default function QueueTab({ onViewCase }: { onViewCase: (c: VetCase) => void }) {
   const { cases } = useVetResponse();

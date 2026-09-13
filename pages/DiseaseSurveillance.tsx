@@ -1,5 +1,4 @@
-﻿import React, { useState } from 'react';
-import { Search } from 'lucide-react';
+import { useState } from 'react';
 import { useAppContext } from '../context/AppContext';
 
 const tabs = ['Reported Cases', 'Suspected Outbreaks', 'Confirmed Outbreaks', 'Mortality Reports'];

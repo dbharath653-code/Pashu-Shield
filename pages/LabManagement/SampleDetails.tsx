@@ -1,7 +1,7 @@
-﻿import React, { useState } from "react";
+import { useState } from "react";
 import { useLab } from "../../context/LabContext";
 import type { LabSample, LabTest } from "../../context/LabContext";
-import { ArrowLeft, MapPin, QrCode, FileText, CheckCircle, Save, Plus, AlertTriangle } from "lucide-react";
+import { ArrowLeft, QrCode, FileText, CheckCircle, Plus, AlertTriangle } from "lucide-react";
 
 export default function SampleDetails({ sample, onBack }: { sample: LabSample, onBack: () => void }) {
   const { updateSample } = useLab();

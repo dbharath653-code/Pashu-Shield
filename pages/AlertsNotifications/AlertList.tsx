@@ -1,7 +1,7 @@
-﻿import React, { useState } from "react";
+import { useState } from "react";
 import { useAlerts } from "../../context/AlertsContext";
 import type { SystemAlert } from "../../context/AlertsContext";
-import { Search, Filter, ChevronRight, X } from "lucide-react";
+import { Search, ChevronRight, X } from "lucide-react";
 import AlertDetailModal from "./AlertDetailModal";
 
 export default function AlertList() {

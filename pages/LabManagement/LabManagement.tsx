@@ -1,5 +1,6 @@
-﻿import React, { useState } from "react";
+import { useState } from "react";
 import { LabProvider } from "../../context/LabContext";
+import { promptDialog } from "../../services/Dialogs";
 import type { LabSample } from "../../context/LabContext";
 import LabDashboard from "./LabDashboard";
 import SampleRegistry from "./SampleRegistry";
@@ -29,7 +30,7 @@ function LabManagementContent() {
             <button onClick={() => alert("Hardware camera initialized. Ready to scan sample QR labels.")} className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm flex items-center gap-2">
               <QrCode size={16}/> Scan QR
             </button>
-            <button className="px-4 py-2 bg-brandBlue text-white rounded-lg hover:bg-brandBlue/90 font-medium flex items-center gap-2 text-sm" onClick={() => { const id = prompt("Enter Sample ID or scan barcode to receive at lab:"); if (id) alert("Sample " + id + " successfully logged as Received at Laboratory."); }}>
+            <button className="px-4 py-2 bg-brandBlue text-white rounded-lg hover:bg-brandBlue/90 font-medium flex items-center gap-2 text-sm" onClick={async () => { const id = await promptDialog("Enter Sample ID or scan barcode to receive at lab:", { title: "Receive sample", placeholder: "e.g. SMP-10231", confirmLabel: "Receive" }); if (id) alert("Sample " + id + " successfully logged as Received at Laboratory."); }}>
               <Plus size={16}/> Receive Sample
             </button>
           </div>

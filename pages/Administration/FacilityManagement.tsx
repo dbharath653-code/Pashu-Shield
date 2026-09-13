@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { AdminService } from "../../services/AdminService";
 import type { Facility } from "../../services/AdminService";
 import { Search, Plus, Building2, MapPin, Edit } from "lucide-react";

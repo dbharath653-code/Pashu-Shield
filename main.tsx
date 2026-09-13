@@ -1,16 +1,21 @@
-﻿import { StrictMode } from "react"
+import { StrictMode } from "react"
 import { createRoot } from "react-dom/client"
 import "./index.css"
 import App from "./App.tsx"
 
 // Register the PWA service worker for offline support
 import { registerSW } from "virtual:pwa-register"
-const updateSW = registerSW({
+registerSW({
   onNeedRefresh() {
-    // optional: show a prompt to user to refresh
+    // registerType is "autoUpdate" in vite.config.ts, so the new worker
+    // activates on its own; just log for diagnostics.
+    console.log("A new version is available and will be applied automatically");
   },
   onOfflineReady() {
     console.log("App is ready to work offline");
+  },
+  onRegisterError(error) {
+    console.error("Service worker registration failed", error);
   },
 })
 

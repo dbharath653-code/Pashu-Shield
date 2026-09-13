@@ -1,7 +1,7 @@
-﻿import React from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { AppProvider } from './context/AppContext';
 import Layout from './components/Layout';
+import ErrorBoundary from './components/ErrorBoundary';
 import Dashboard from './pages/Dashboard';
 import DiseaseSurveillance from './pages/DiseaseSurveillance';
 import GisRiskMap from './pages/GisRiskMap';
@@ -18,16 +18,17 @@ import DiseaseInfo from './pages/DiseaseInfo/DiseaseInfo';
 import AnalyticsManagement from './pages/Analytics/AnalyticsManagement';
 import AdminManagement from './pages/Administration/AdminManagement';
 
-function Placeholder({ title }: { title: string }) {
-  return (
-    <div className="flex items-center justify-center h-full bg-white rounded-xl shadow-sm border border-gray-100">
-      <h2 className="text-2xl font-semibold text-gray-400">{title} Component (Coming Soon)</h2>
-    </div>
-  );
-}
-
 import { AlertsProvider } from './context/AlertsContext';
 import { MultilingualProvider } from './context/MultilingualContext';
+
+/**
+ * Resets the error boundary whenever the route changes so a crash on one screen
+ * does not follow the user to the next one.
+ */
+function RouteErrorBoundary({ children }: { children: React.ReactNode }) {
+  const location = useLocation();
+  return <ErrorBoundary key={location.pathname}>{children}</ErrorBoundary>;
+}
 
 function App() {
   return (
@@ -37,21 +38,23 @@ function App() {
         <BrowserRouter>
           <Routes>
           <Route path="/" element={<Layout />}>
-          <Route index element={<Dashboard />} />
-          <Route path="surveillance" element={<DiseaseSurveillance />} />
-          <Route path="gis" element={<GisRiskMap />} />
-          <Route path="ai" element={<AIEarlyWarning />} />
-          <Route path="reporting" element={<CaseReporting />} />
-          <Route path="animal-health" element={<AnimalHealth />} />
-          <Route path="vet-response" element={<VetResponse />} />
-          <Route path="lab" element={<LabManagement />} />
-          <Route path="vaccination" element={<VaccinationManagement />} />
-          <Route path="alerts" element={<AlertsManagement />} />
-          <Route path="multilingual" element={<MultilingualManagement />} />
-          <Route path="offline" element={<OfflineSync />} />
-          <Route path="disease-info" element={<DiseaseInfo />} />
-          <Route path="analytics" element={<AnalyticsManagement />} />
-          <Route path="admin" element={<AdminManagement />} />
+          <Route index element={<RouteErrorBoundary><Dashboard /></RouteErrorBoundary>} />
+          <Route path="surveillance" element={<RouteErrorBoundary><DiseaseSurveillance /></RouteErrorBoundary>} />
+          <Route path="gis" element={<RouteErrorBoundary><GisRiskMap /></RouteErrorBoundary>} />
+          <Route path="ai" element={<RouteErrorBoundary><AIEarlyWarning /></RouteErrorBoundary>} />
+          <Route path="reporting" element={<RouteErrorBoundary><CaseReporting /></RouteErrorBoundary>} />
+          <Route path="animal-health" element={<RouteErrorBoundary><AnimalHealth /></RouteErrorBoundary>} />
+          <Route path="vet-response" element={<RouteErrorBoundary><VetResponse /></RouteErrorBoundary>} />
+          <Route path="lab" element={<RouteErrorBoundary><LabManagement /></RouteErrorBoundary>} />
+          <Route path="vaccination" element={<RouteErrorBoundary><VaccinationManagement /></RouteErrorBoundary>} />
+          <Route path="alerts" element={<RouteErrorBoundary><AlertsManagement /></RouteErrorBoundary>} />
+          <Route path="multilingual" element={<RouteErrorBoundary><MultilingualManagement /></RouteErrorBoundary>} />
+          <Route path="offline" element={<RouteErrorBoundary><OfflineSync /></RouteErrorBoundary>} />
+          <Route path="disease-info" element={<RouteErrorBoundary><DiseaseInfo /></RouteErrorBoundary>} />
+          <Route path="analytics" element={<RouteErrorBoundary><AnalyticsManagement /></RouteErrorBoundary>} />
+          <Route path="admin" element={<RouteErrorBoundary><AdminManagement /></RouteErrorBoundary>} />
+          {/* Unknown deep links fall back to the dashboard instead of a blank screen */}
+          <Route path="*" element={<RouteErrorBoundary><Dashboard /></RouteErrorBoundary>} />
         </Route>
         </Routes>
       </BrowserRouter>

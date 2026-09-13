@@ -1,10 +1,10 @@
-﻿import React, { useState } from "react";
+import { useState } from "react";
 import { VaccinationProvider } from "../../context/VaccinationContext";
 import VaccinationDashboard from "./VaccinationDashboard";
 import CampaignsTab from "./CampaignsTab";
 import RecordVaccination from "./RecordVaccination";
 import VaccinationRegistry from "./VaccinationRegistry";
-import { Shield, Plus, Printer, QrCode } from "lucide-react";
+import { Shield, Plus, QrCode } from "lucide-react";
 
 function VaccinationContent() {
   const [activeTab, setActiveTab] = useState("Dashboard");

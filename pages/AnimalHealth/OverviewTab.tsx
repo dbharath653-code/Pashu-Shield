@@ -1,4 +1,3 @@
-﻿import React from "react";
 import { useAnimalHealth } from "../../context/AnimalHealthContext";
 import { Activity, ShieldAlert, HeartPulse, ShieldCheck, AlertTriangle } from "lucide-react";
 
@@ -13,7 +12,7 @@ export default function OverviewTab() {
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
         <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between">
           <div>
             <p className="text-sm font-medium text-gray-500">Total Animals</p>
@@ -27,6 +26,13 @@ export default function OverviewTab() {
             <p className="text-2xl font-bold text-green-600">{healthyAnimals}</p>
           </div>
           <div className="p-3 bg-green-50 text-green-600 rounded-lg"><ShieldCheck size={24} /></div>
+        </div>
+        <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-gray-500">Under Observation</p>
+            <p className="text-2xl font-bold text-orange-600">{observation}</p>
+          </div>
+          <div className="p-3 bg-orange-50 text-orange-600 rounded-lg"><AlertTriangle size={24} /></div>
         </div>
         <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between">
           <div>
@@ -52,7 +58,7 @@ export default function OverviewTab() {
               <div key={animal.id} className="flex justify-between items-center p-3 hover:bg-gray-50 rounded-lg border border-gray-100">
                 <div>
                   <p className="font-medium text-gray-900">{animal.id}</p>
-                  <p className="text-sm text-gray-500">{animal.species} � {animal.village}</p>
+                  <p className="text-sm text-gray-500">{animal.species} • {animal.village}</p>
                 </div>
                 <div className={`px-3 py-1 rounded-full text-xs font-semibold 
                   ${animal.healthStatus === "Healthy" ? "bg-green-100 text-green-800" : 

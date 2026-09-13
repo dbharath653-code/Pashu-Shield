@@ -1,4 +1,4 @@
-﻿import React, { useState } from "react";
+import { useState } from "react";
 import { AnalyticsService } from "../../services/AnalyticsService";
 import type { FilterOptions } from "../../services/AnalyticsService";
 import { X, FileText, Download, Loader2 } from "lucide-react";

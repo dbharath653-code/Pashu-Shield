@@ -1,4 +1,3 @@
-﻿import React from "react";
 import { useMultilingual } from "../../context/MultilingualContext";
 import { Check, Globe, Mic, Volume2 } from "lucide-react";
 

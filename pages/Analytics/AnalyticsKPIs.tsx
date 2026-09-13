@@ -1,4 +1,3 @@
-﻿import React from "react";
 import type { KPIData } from "../../services/AnalyticsService";
 import { TrendingUp, TrendingDown, Minus, Activity, ShieldAlert, HeartPulse, ShieldX, TestTube, Syringe } from "lucide-react";
 

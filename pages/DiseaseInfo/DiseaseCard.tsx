@@ -1,6 +1,5 @@
-﻿import React from "react";
 import type { Disease } from "../../services/DiseaseService";
-import { ShieldAlert, Info, Syringe, Virus } from "lucide-react";
+import { Info, Syringe, Virus } from "lucide-react";
 
 interface Props {
   disease: Disease;
