@@ -18,6 +18,14 @@ export interface AuthUser {
   village?: string;
   license_number?: string;
   qualification?: string;
+  designation?: string;
+  department?: string;
+}
+
+export interface AuthResult {
+  success: boolean;
+  error?: string;
+  user?: AuthUser;
 }
 
 interface AuthContextType {
@@ -26,7 +34,8 @@ interface AuthContextType {
   isAuthenticated: boolean;
   role: RoleType;
   setRole: (role: RoleType) => void;
-  login: (email: string, pass: string) => Promise<boolean>;
+  login: (email: string, pass: string) => Promise<AuthResult>;
+  signup: (roleCategory: "farmer" | "vet" | "lab" | "government", payload: any) => Promise<AuthResult>;
   demoLogin: (role: RoleType) => Promise<void>;
   logout: () => void;
   wsStatus: "CONNECTED" | "RECONNECTING" | "OFFLINE" | "SYNCING";
@@ -49,6 +58,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return {
       id: "FARMER-MH-001",
       email: "farmer@pashushield.gov.in",
+      phone: "9823012345",
       full_name: "Ramesh Tukaram Patil",
       role: "FARMER",
       district: "Pune",
@@ -82,7 +92,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         ws.onmessage = (event) => {
           try {
             const data = JSON.parse(event.data);
-            // Trigger storage or event
             window.dispatchEvent(new CustomEvent("pashu_realtime_event", { detail: data }));
           } catch {
             // raw msg
@@ -133,7 +142,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         localStorage.setItem("auth_token", data.access_token);
         localStorage.setItem("auth_user", JSON.stringify(data.user));
       } else {
-        // Fallback local state if API is offline
         const fallbackUser: AuthUser = {
           id: `${targetRole}-DEMO`,
           email: `${targetRole.toLowerCase()}@pashushield.gov.in`,
@@ -159,25 +167,58 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const login = async (email: string, pass: string): Promise<boolean> => {
+  const login = async (email: string, pass: string): Promise<AuthResult> => {
     try {
       const res = await fetch("/api/v1/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password: pass })
+        body: JSON.stringify({ email: email.trim(), password: pass })
       });
-      if (res.ok) {
-        const data = await res.json();
+      const data = await res.json();
+      if (res.ok && data.access_token) {
         setToken(data.access_token);
         setUser(data.user);
         localStorage.setItem("auth_token", data.access_token);
         localStorage.setItem("auth_user", JSON.stringify(data.user));
-        return true;
+        return { success: true, user: data.user };
       }
-    } catch {
-      // Login failed
+      return { success: false, error: data?.detail || "Invalid credentials. Please check your username and password." };
+    } catch (err: any) {
+      return { success: false, error: err.message || "Network error during login." };
     }
-    return false;
+  };
+
+  const signup = async (
+    roleCategory: "farmer" | "vet" | "lab" | "government",
+    payload: any
+  ): Promise<AuthResult> => {
+    try {
+      const endpoint =
+        roleCategory === "farmer"
+          ? "/api/v1/auth/signup/farmer"
+          : roleCategory === "vet"
+          ? "/api/v1/auth/signup/vet"
+          : roleCategory === "lab"
+          ? "/api/v1/auth/signup/lab"
+          : "/api/v1/auth/signup/government";
+
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (res.ok && data.access_token) {
+        setToken(data.access_token);
+        setUser(data.user);
+        localStorage.setItem("auth_token", data.access_token);
+        localStorage.setItem("auth_user", JSON.stringify(data.user));
+        return { success: true, user: data.user };
+      }
+      return { success: false, error: data?.detail || "Registration failed. Please check the entered fields." };
+    } catch (err: any) {
+      return { success: false, error: err.message || "Network error during registration." };
+    }
   };
 
   const setRole = (newRole: RoleType) => {
@@ -200,6 +241,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         role: user?.role || "FARMER",
         setRole,
         login,
+        signup,
         demoLogin,
         logout,
         wsStatus

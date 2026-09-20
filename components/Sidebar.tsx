@@ -4,7 +4,7 @@ import { useAuth } from "../context/AuthContext";
 import { 
   LayoutDashboard, Activity, Map as MapIcon, BrainCircuit, FileText, 
   HeartPulse, Stethoscope, TestTube2, Syringe, BellRing, Languages, 
-  WifiOff, Info, BarChart3, Settings, Home, Shield
+  WifiOff, Info, BarChart3, Settings, Home, Shield, Key, UserPlus
 } from "lucide-react";
 
 export default function Sidebar() {
@@ -13,8 +13,10 @@ export default function Sidebar() {
 
   // Role-based Navigation configuration
   const getNavGroups = () => {
+    let groups: { title: string; items: { id: string; label: string; icon: any; path: string }[] }[] = [];
+
     if (role === "FARMER") {
-      return [
+      groups = [
         {
           title: "FARMER SERVICES",
           items: [
@@ -36,10 +38,8 @@ export default function Sidebar() {
           ]
         }
       ];
-    }
-
-    if (role === "VETERINARIAN") {
-      return [
+    } else if (role === "VETERINARIAN") {
+      groups = [
         {
           title: "CLINICAL RESPONSE",
           items: [
@@ -60,10 +60,8 @@ export default function Sidebar() {
           ]
         }
       ];
-    }
-
-    if (role === "LAB_TECHNICIAN") {
-      return [
+    } else if (role === "LAB_TECHNICIAN") {
+      groups = [
         {
           title: "LABORATORY OPERATIONS",
           items: [
@@ -81,41 +79,52 @@ export default function Sidebar() {
           ]
         }
       ];
+    } else {
+      // Default: Government Official & System Admin (Full Oversight)
+      groups = [
+        {
+          title: "SURVEILLANCE & GIS",
+          items: [
+            { id: "dashboard", label: t("nav.dashboard"), icon: LayoutDashboard, path: "/" },
+            { id: "surveillance", label: t("nav.surveillance"), icon: Activity, path: "/surveillance" },
+            { id: "gis", label: t("nav.gis"), icon: MapIcon, path: "/gis" },
+            { id: "ai", label: t("nav.ai"), icon: BrainCircuit, path: "/ai" },
+            { id: "reporting", label: t("nav.reporting"), icon: FileText, path: "/reporting" }
+          ]
+        },
+        {
+          title: "ANIMAL HEALTH & RESPONSE",
+          items: [
+            { id: "animal-health", label: t("nav.animalHealth"), icon: HeartPulse, path: "/animal-health" },
+            { id: "vet-response", label: t("nav.vetResponse"), icon: Stethoscope, path: "/vet-response" },
+            { id: "lab", label: t("nav.lab"), icon: TestTube2, path: "/lab" },
+            { id: "vaccination", label: t("nav.vaccination"), icon: Syringe, path: "/vaccination" }
+          ]
+        },
+        {
+          title: "INTELLIGENCE & ADMIN",
+          items: [
+            { id: "alerts", label: t("nav.alerts"), icon: BellRing, path: "/alerts" },
+            { id: "analytics", label: t("nav.analytics"), icon: BarChart3, path: "/analytics" },
+            { id: "disease-info", label: t("nav.diseaseInfo"), icon: Info, path: "/disease-info" },
+            { id: "multilingual", label: t("nav.multilingual"), icon: Languages, path: "/multilingual" },
+            { id: "offline", label: t("nav.offline"), icon: WifiOff, path: "/offline" },
+            { id: "admin", label: t("nav.admin"), icon: Settings, path: "/admin" }
+          ]
+        }
+      ];
     }
 
-    // Default: Government & System Admin (Full Oversight)
-    return [
-      {
-        title: "SURVEILLANCE & GIS",
-        items: [
-          { id: "dashboard", label: t("nav.dashboard"), icon: LayoutDashboard, path: "/" },
-          { id: "surveillance", label: t("nav.surveillance"), icon: Activity, path: "/surveillance" },
-          { id: "gis", label: t("nav.gis"), icon: MapIcon, path: "/gis" },
-          { id: "ai", label: t("nav.ai"), icon: BrainCircuit, path: "/ai" },
-          { id: "reporting", label: t("nav.reporting"), icon: FileText, path: "/reporting" }
-        ]
-      },
-      {
-        title: "ANIMAL HEALTH & RESPONSE",
-        items: [
-          { id: "animal-health", label: t("nav.animalHealth"), icon: HeartPulse, path: "/animal-health" },
-          { id: "vet-response", label: t("nav.vetResponse"), icon: Stethoscope, path: "/vet-response" },
-          { id: "lab", label: t("nav.lab"), icon: TestTube2, path: "/lab" },
-          { id: "vaccination", label: t("nav.vaccination"), icon: Syringe, path: "/vaccination" }
-        ]
-      },
-      {
-        title: "INTELLIGENCE & ADMIN",
-        items: [
-          { id: "alerts", label: t("nav.alerts"), icon: BellRing, path: "/alerts" },
-          { id: "analytics", label: t("nav.analytics"), icon: BarChart3, path: "/analytics" },
-          { id: "disease-info", label: t("nav.diseaseInfo"), icon: Info, path: "/disease-info" },
-          { id: "multilingual", label: t("nav.multilingual"), icon: Languages, path: "/multilingual" },
-          { id: "offline", label: t("nav.offline"), icon: WifiOff, path: "/offline" },
-          { id: "admin", label: t("nav.admin"), icon: Settings, path: "/admin" }
-        ]
-      }
-    ];
+    // Append Portals & Authentication section for all roles
+    groups.push({
+      title: "PORTALS & ACCESS",
+      items: [
+        { id: "role-portals", label: "Separate Role Portals", icon: Key, path: "/login" },
+        { id: "account-signup", label: "Register New Account", icon: UserPlus, path: "/signup" }
+      ]
+    });
+
+    return groups;
   };
 
   const navGroups = getNavGroups();

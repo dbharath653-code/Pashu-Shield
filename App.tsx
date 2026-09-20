@@ -8,7 +8,7 @@ import { AuthProvider, useAuth } from "./context/AuthContext";
 import Layout from "./components/Layout";
 import ErrorBoundary from "./components/ErrorBoundary";
 
-// Pages
+// Core Pages
 import Dashboard from "./pages/Dashboard";
 import FarmerDashboard from "./pages/FarmerDashboard";
 import DiseaseSurveillance from "./pages/DiseaseSurveillance";
@@ -25,6 +25,18 @@ import OfflineSync from "./pages/OfflineSync/OfflineSync";
 import DiseaseInfo from "./pages/DiseaseInfo/DiseaseInfo";
 import AnalyticsManagement from "./pages/Analytics/AnalyticsManagement";
 import AdminManagement from "./pages/Administration/AdminManagement";
+
+// Dedicated Separate Auth Portals & Pages
+import LoginPortal from "./pages/Auth/LoginPortal";
+import FarmerLogin from "./pages/Auth/FarmerLogin";
+import FarmerSignup from "./pages/Auth/FarmerSignup";
+import VetLogin from "./pages/Auth/VetLogin";
+import VetSignup from "./pages/Auth/VetSignup";
+import LabLogin from "./pages/Auth/LabLogin";
+import LabSignup from "./pages/Auth/LabSignup";
+import GovernmentLogin from "./pages/Auth/GovernmentLogin";
+import GovernmentSignup from "./pages/Auth/GovernmentSignup";
+import SignupPortal from "./pages/Auth/SignupPortal";
 
 function RouteErrorBoundary({ children }: { children: React.ReactNode }) {
   const location = useLocation();
@@ -47,6 +59,26 @@ function App() {
           <AlertsProvider>
             <BrowserRouter>
               <Routes>
+                {/* Dedicated Separate Login & Sign-up Pages */}
+                <Route path="/login" element={<RouteErrorBoundary><LoginPortal /></RouteErrorBoundary>} />
+                <Route path="/login/farmer" element={<RouteErrorBoundary><FarmerLogin /></RouteErrorBoundary>} />
+                <Route path="/login/veterinary" element={<RouteErrorBoundary><VetLogin /></RouteErrorBoundary>} />
+                <Route path="/login/vet" element={<RouteErrorBoundary><VetLogin /></RouteErrorBoundary>} />
+                <Route path="/login/laboratory" element={<RouteErrorBoundary><LabLogin /></RouteErrorBoundary>} />
+                <Route path="/login/lab" element={<RouteErrorBoundary><LabLogin /></RouteErrorBoundary>} />
+                <Route path="/login/government" element={<RouteErrorBoundary><GovernmentLogin /></RouteErrorBoundary>} />
+                <Route path="/login/admin" element={<RouteErrorBoundary><GovernmentLogin /></RouteErrorBoundary>} />
+
+                <Route path="/signup" element={<RouteErrorBoundary><SignupPortal /></RouteErrorBoundary>} />
+                <Route path="/signup/farmer" element={<RouteErrorBoundary><FarmerSignup /></RouteErrorBoundary>} />
+                <Route path="/signup/veterinary" element={<RouteErrorBoundary><VetSignup /></RouteErrorBoundary>} />
+                <Route path="/signup/vet" element={<RouteErrorBoundary><VetSignup /></RouteErrorBoundary>} />
+                <Route path="/signup/laboratory" element={<RouteErrorBoundary><LabSignup /></RouteErrorBoundary>} />
+                <Route path="/signup/lab" element={<RouteErrorBoundary><LabSignup /></RouteErrorBoundary>} />
+                <Route path="/signup/government" element={<RouteErrorBoundary><GovernmentSignup /></RouteErrorBoundary>} />
+                <Route path="/signup/admin" element={<RouteErrorBoundary><GovernmentSignup /></RouteErrorBoundary>} />
+
+                {/* Main Authenticated Application Layout */}
                 <Route path="/" element={<Layout />}>
                   <Route index element={<RouteErrorBoundary><RoleBasedHome /></RouteErrorBoundary>} />
                   <Route path="farmer" element={<RouteErrorBoundary><FarmerDashboard /></RouteErrorBoundary>} />

@@ -44,6 +44,17 @@ class LabRegister(BaseModel):
     address: Optional[str] = None
     services: Optional[List[str]] = []
 
+class GovernmentRegister(BaseModel):
+    full_name: str
+    email: EmailStr
+    phone: str
+    password: str
+    department: Optional[str] = "Department of Animal Husbandry, Govt. of Maharashtra"
+    designation: Optional[str] = "Surveillance Officer"
+    jurisdiction: Optional[str] = "Maharashtra State"
+    district: Optional[str] = "Pune"
+    role: Optional[str] = "STATE_OFFICER"
+
 class UserLogin(BaseModel):
     email: str
     password: str

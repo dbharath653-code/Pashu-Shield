@@ -216,3 +216,71 @@ async def test_ml_endpoints():
         )
         assert ob_res.status_code == 200
         assert "outbreak_detected" in ob_res.json()
+
+@pytest.mark.asyncio
+async def test_role_specific_logins_and_signups():
+    import uuid
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+        # 1. Test Seeded Logins
+        credentials = [
+            ("farmer@pashushield.gov.in", "Farmer@123", "FARMER"),
+            ("vet@pashushield.gov.in", "Vet@123", "VETERINARIAN"),
+            ("lab@pashushield.gov.in", "Lab@123", "LAB_TECHNICIAN"),
+            ("state@pashushield.gov.in", "Govt@123", "STATE_OFFICER"),
+            ("admin@pashushield.gov.in", "Govt@123", "SYSTEM_ADMIN"),
+        ]
+        for email, pwd, expected_role in credentials:
+            res = await client.post("/api/v1/auth/login", json={"email": email, "password": pwd})
+            assert res.status_code == 200, f"Login failed for {email}"
+            data = res.json()
+            assert "access_token" in data
+            assert data["user"]["role"] == expected_role
+
+        # 2. Test Sign Up for Farmer
+        uid = uuid.uuid4().hex[:6]
+        f_res = await client.post("/api/v1/auth/signup/farmer", json={
+            "full_name": f"Farmer Test {uid}",
+            "phone": f"99{uid[:8]}",
+            "email": f"farmer_{uid}@example.com",
+            "password": "Password@123",
+            "district": "Satara",
+            "village": "Karad"
+        })
+        assert f_res.status_code == 200
+        assert f_res.json()["user"]["role"] == "FARMER"
+
+        # 3. Test Sign Up for Vet
+        v_res = await client.post("/api/v1/auth/signup/vet", json={
+            "full_name": f"Dr. Vet Test {uid}",
+            "phone": f"98{uid[:8]}",
+            "email": f"vet_{uid}@example.com",
+            "password": "Password@123",
+            "license_number": f"MSVC-{uid}",
+            "qualification": "B.V.Sc & A.H.",
+            "district": "Pune"
+        })
+        assert v_res.status_code == 200
+        assert v_res.json()["user"]["role"] == "VETERINARIAN"
+
+        # 4. Test Sign Up for Lab
+        l_res = await client.post("/api/v1/auth/signup/lab", json={
+            "lab_name": f"Test Diagnostic Lab {uid}",
+            "email": f"lab_{uid}@example.com",
+            "phone": f"97{uid[:8]}",
+            "password": "Password@123",
+            "district": "Pune"
+        })
+        assert l_res.status_code == 200
+        assert l_res.json()["user"]["role"] == "LAB_TECHNICIAN"
+
+        # 5. Test Sign Up for Government Official / Admin
+        g_res = await client.post("/api/v1/auth/signup/government", json={
+            "full_name": f"Dr. Officer Test {uid}",
+            "email": f"govt_{uid}@example.com",
+            "phone": f"96{uid[:8]}",
+            "password": "Password@123",
+            "district": "Pune",
+            "role": "STATE_OFFICER"
+        })
+        assert g_res.status_code == 200
+        assert g_res.json()["user"]["role"] == "STATE_OFFICER"

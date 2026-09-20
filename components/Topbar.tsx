@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { 
   Bell, Menu, Globe, 
-  ChevronDown, Shield, Check
+  ChevronDown, Shield, Check, Key, LogOut
 } from "lucide-react";
 import { useAlerts } from "../context/AlertsContext";
 import { useMultilingual, LANGUAGE_NAMES } from "../context/MultilingualContext";
@@ -13,19 +13,20 @@ import { useNavigate } from "react-router-dom";
 export default function Topbar() {
   const { unreadCount } = useAlerts();
   const { language, setLanguage, t } = useMultilingual();
-  const { user, role, setRole, wsStatus } = useAuth();
+  const { user, role, setRole, wsStatus, logout } = useAuth();
   const navigate = useNavigate();
 
   const [showRoleDropdown, setShowRoleDropdown] = useState(false);
   const [showLangDropdown, setShowLangDropdown] = useState(false);
+  const [showUserDropdown, setShowUserDropdown] = useState(false);
 
-  const rolesList: { role: RoleType; label: string; badge: string }[] = [
-    { role: "FARMER", label: "Farmer / Livestock Keeper", badge: "🌾 Farmer" },
-    { role: "VETERINARIAN", label: "Veterinary Officer (Dr. Deshmukh)", badge: "👨‍⚕️ Vet" },
-    { role: "LAB_TECHNICIAN", label: "Lab Diagnostic Officer (DIS Pune)", badge: "🧪 Lab" },
-    { role: "DISTRICT_OFFICER", label: "District Officer (Pune DAHO)", badge: "🏛️ District" },
-    { role: "STATE_OFFICER", label: "State Surveillance Coordinator", badge: "🏢 State" },
-    { role: "SYSTEM_ADMIN", label: "System Administrator", badge: "⚙️ Admin" }
+  const rolesList: { role: RoleType; label: string; badge: string; loginUrl: string }[] = [
+    { role: "FARMER", label: "Farmer / Livestock Keeper", badge: "🌾 Farmer", loginUrl: "/login/farmer" },
+    { role: "VETERINARIAN", label: "Veterinary Officer (Dr. Deshmukh)", badge: "👨‍⚕️ Vet", loginUrl: "/login/veterinary" },
+    { role: "LAB_TECHNICIAN", label: "Lab Diagnostic Officer (DIS Pune)", badge: "🧪 Lab", loginUrl: "/login/laboratory" },
+    { role: "DISTRICT_OFFICER", label: "District Officer (Pune DAHO)", badge: "🏛️ District", loginUrl: "/login/government" },
+    { role: "STATE_OFFICER", label: "State Surveillance Coordinator", badge: "🏢 State", loginUrl: "/login/government" },
+    { role: "SYSTEM_ADMIN", label: "System Administrator", badge: "⚙️ Admin", loginUrl: "/login/admin" }
   ];
 
   return (
@@ -45,8 +46,8 @@ export default function Topbar() {
         </div>
       </div>
 
-      {/* Right Controls: WebSocket status, Language, Role Switcher, Alerts, Profile */}
-      <div className="flex items-center gap-2 sm:gap-4">
+      {/* Right Controls */}
+      <div className="flex items-center gap-2 sm:gap-3">
         {/* Real-time WebSocket Status Indicator */}
         <div 
           className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${
@@ -66,12 +67,24 @@ export default function Topbar() {
           <span className="hidden md:inline">{wsStatus}</span>
         </div>
 
+        {/* Dedicated Portals & Login Direct Button */}
+        <button
+          onClick={() => navigate("/login")}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-all shadow-xs"
+          title="Access Separate Role Login & Sign Up Portals"
+        >
+          <Key size={13} />
+          <span className="hidden sm:inline">Role Portals</span>
+          <span className="sm:hidden">Login</span>
+        </button>
+
         {/* 8-Language Switcher Dropdown */}
         <div className="relative">
           <button
             onClick={() => {
               setShowLangDropdown(!showLangDropdown);
               setShowRoleDropdown(false);
+              setShowUserDropdown(false);
             }}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 text-xs font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
           >
@@ -104,12 +117,13 @@ export default function Topbar() {
           )}
         </div>
 
-        {/* Role Switcher Dropdown */}
+        {/* Role Quick Switcher Dropdown */}
         <div className="relative">
           <button
             onClick={() => {
               setShowRoleDropdown(!showRoleDropdown);
               setShowLangDropdown(false);
+              setShowUserDropdown(false);
             }}
             className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 text-xs font-semibold text-gray-800 transition-colors border border-gray-300/70"
           >
@@ -122,8 +136,17 @@ export default function Topbar() {
 
           {showRoleDropdown && (
             <div className="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-2xl border border-gray-100 py-1.5 z-50">
-              <div className="px-3 py-1.5 border-b border-gray-100 text-[10px] font-bold text-gray-400 uppercase">
-                Switch Operational Role
+              <div className="px-3 py-1.5 border-b border-gray-100 text-[10px] font-bold text-gray-400 uppercase flex justify-between items-center">
+                <span>Quick Role Switch</span>
+                <button
+                  onClick={() => {
+                    setShowRoleDropdown(false);
+                    navigate("/login");
+                  }}
+                  className="text-blue-600 hover:underline lowercase font-normal"
+                >
+                  portal hub
+                </button>
               </div>
               {rolesList.map((r) => (
                 <button
@@ -160,17 +183,64 @@ export default function Topbar() {
           )}
         </button>
 
-        {/* User Badge */}
-        <div className="hidden lg:flex items-center gap-2 pl-2 border-l border-gray-200">
-          <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-700 text-white flex items-center justify-center text-xs font-bold shadow-xs">
-            {user?.full_name ? user.full_name.charAt(0).toUpperCase() : "U"}
-          </div>
-          <div className="text-left">
-            <p className="text-xs font-bold text-gray-800 leading-tight truncate max-w-[120px]">
-              {user?.full_name || "User"}
-            </p>
-            <p className="text-[10px] text-gray-500 uppercase tracking-wider">{role}</p>
-          </div>
+        {/* User Badge & Profile Menu */}
+        <div className="relative">
+          <button
+            onClick={() => {
+              setShowUserDropdown(!showUserDropdown);
+              setShowRoleDropdown(false);
+              setShowLangDropdown(false);
+            }}
+            className="flex items-center gap-2 pl-2 border-l border-gray-200 hover:opacity-80 transition-opacity"
+          >
+            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-700 text-white flex items-center justify-center text-xs font-bold shadow-xs">
+              {user?.full_name ? user.full_name.charAt(0).toUpperCase() : "U"}
+            </div>
+            <div className="text-left hidden lg:block">
+              <p className="text-xs font-bold text-gray-800 leading-tight truncate max-w-[120px]">
+                {user?.full_name || "User"}
+              </p>
+              <p className="text-[10px] text-gray-500 uppercase tracking-wider">{role}</p>
+            </div>
+            <ChevronDown size={12} className="text-gray-400 hidden lg:block" />
+          </button>
+
+          {showUserDropdown && (
+            <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-2xl border border-gray-100 py-2 z-50">
+              <div className="px-3 py-2 border-b border-gray-100">
+                <p className="text-xs font-bold text-gray-900 truncate">{user?.full_name}</p>
+                <p className="text-[11px] text-gray-500 truncate">{user?.email}</p>
+                <span className="inline-block mt-1 px-2 py-0.5 text-[10px] font-bold rounded bg-blue-50 text-blue-700 border border-blue-200">
+                  {role}
+                </span>
+              </div>
+
+              <div className="py-1">
+                <button
+                  onClick={() => {
+                    setShowUserDropdown(false);
+                    navigate("/login");
+                  }}
+                  className="w-full text-left px-3 py-2 text-xs text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                >
+                  <Key size={14} className="text-blue-600" />
+                  <span>Switch Portal / Role</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setShowUserDropdown(false);
+                    logout();
+                    navigate("/login");
+                  }}
+                  className="w-full text-left px-3 py-2 text-xs text-red-600 hover:bg-red-50 flex items-center gap-2 font-semibold"
+                >
+                  <LogOut size={14} className="text-red-500" />
+                  <span>Sign Out</span>
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </header>

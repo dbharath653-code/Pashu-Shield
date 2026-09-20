@@ -116,7 +116,26 @@
 
 ---
 
-## 3. User Roles & RBAC Matrix
+## 3. Dedicated Role Portals & Authentication Credentials
+
+Pashu-Shield provides **separate login and registration pages** tailored for each operational role. The **Government Official** functions as the administrative and surveillance authority overseeing the entire state situation.
+
+### Authentication Endpoints & Credentials Matrix
+
+| Operational Role | Dedicated Login Route | Dedicated Sign-up Route | Authorized Email / Phone | Password | Default User & Jurisdiction |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **🌾 Farmer / Livestock Keeper** | `/login/farmer` | `/signup/farmer` | `farmer@pashushield.gov.in`<br>(or `9823012345`) | `Farmer@123` | Ramesh Tukaram Patil<br>(Walwur, Shirur, Pune) |
+| **👨‍⚕️ Veterinary Officer** | `/login/veterinary` | `/signup/veterinary` | `vet@pashushield.gov.in`<br>(or `9823054321`) | `Vet@123` | Dr. Sunita Deshmukh<br>(MSVC-2018-04821, Shirur Polyclinic) |
+| **🧪 Diagnostic Laboratory** | `/login/laboratory` | `/signup/laboratory` | `lab@pashushield.gov.in`<br>(or `9823077777`) | `Lab@123` | Pooja Shinde (Senior Microbiologist)<br>(DIS Pune, NABL ISO/IEC 17025) |
+| **🏛️ Government Official (Admin)** | `/login/government`<br>(alias `/login/admin`) | `/signup/government`<br>(alias `/signup/admin`) | `state@pashushield.gov.in`<br>(or `admin@pashushield.gov.in`) | `Govt@123`<br>(or `Admin@123`) | Dr. V. K. Chavan<br>(State Surveillance Coordinator / Joint Director) |
+
+- **Unified Role Portals Hub**: Accessible at `/login` with 1-click demo logins and credentials inspection cards.
+- **Unified Sign-up Hub**: Accessible at `/signup` with dedicated forms for each role category.
+- **Top Bar & Sidebar Access**: Direct "Role Portals" button and User Profile menu allows switching roles or signing out at any point.
+
+---
+
+## 4. User Roles & RBAC Matrix
 
 | Role | Default Demo Account | Primary Capabilities | Restricted Capabilities |
 | --- | --- | --- | --- |
@@ -124,8 +143,8 @@
 | **VETERINARIAN** | `vet@pashushield.gov.in` | Assigned cases queue, emergency response, on-site visit recording, clinical diagnosis, order lab samples | Cannot approve lab verification or change state policy |
 | **LAB_TECHNICIAN** | `lab@pashushield.gov.in` | Receive samples, QR scan, execute RT-PCR/ELISA tests, record values, verify results for surveillance release | Cannot perform field veterinary triage |
 | **DISTRICT_OFFICER** | `district@pashushield.gov.in` | District risk monitoring, outbreak containment tracking, veterinary workload oversight | Limited to district jurisdiction |
-| **STATE_OFFICER** | `state@pashushield.gov.in` | Full Maharashtra surveillance, NADRES comparison, vaccination campaign management | State jurisdiction |
-| **SYSTEM_ADMIN** | `admin@pashushield.gov.in` | User account approvals, role permissions, audit log investigation, system configuration | Unrestricted |
+| **STATE_OFFICER (ADMIN)** | `state@pashushield.gov.in` | Full Maharashtra surveillance, NADRES comparison, vaccination campaign management, GIS hotspot quarantine | State surveillance & administrative authority |
+| **SYSTEM_ADMIN** | `admin@pashushield.gov.in` | User account approvals, role permissions, audit log investigation, system configuration | Unrestricted system-wide authority |
 
 ---
 
