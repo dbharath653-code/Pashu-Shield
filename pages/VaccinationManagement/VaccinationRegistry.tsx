@@ -15,26 +15,26 @@ export default function VaccinationRegistry() {
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex flex-col">
-      <div className="p-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">
-        <div className="relative w-96">
-          <Search className="absolute left-3 top-2.5 text-gray-400" size={20} />
+      <div className="p-4 border-b border-gray-200 flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 bg-gray-50">
+        <div className="relative flex-1 sm:w-96">
+          <Search className="absolute left-3 top-2.5 text-gray-400" size={18} />
           <input 
             type="text" 
             placeholder="Search by ID, Animal, Disease, Vaccine..." 
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-brandBlue focus:border-brandBlue"
+            className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-xs sm:text-sm focus:ring-brandBlue focus:border-brandBlue"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
         <div className="flex gap-2">
-          <button className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 flex items-center gap-2 text-sm font-medium">
-            <Filter size={18} /> Filters
+          <button className="px-3.5 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 flex items-center justify-center gap-2 text-xs sm:text-sm font-medium touch-manipulation min-h-[38px]">
+            <Filter size={16} /> Filters
           </button>
         </div>
       </div>
 
-      <div className="overflow-x-auto">
-        <table className="w-full text-left border-collapse">
+      <div className="overflow-x-auto custom-scrollbar">
+        <table className="w-full text-left border-collapse min-w-[640px]">
           <thead>
             <tr className="bg-gray-50 border-b border-gray-200 text-xs font-medium text-gray-500 uppercase tracking-wider">
               <th className="px-6 py-4">Vaccination ID</th>

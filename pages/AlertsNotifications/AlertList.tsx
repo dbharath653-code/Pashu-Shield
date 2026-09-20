@@ -87,8 +87,8 @@ export default function AlertList() {
 
       {/* Table for Desktop, Cards for Mobile handled via responsive table classes in a real app, 
           here using an overflow-x-auto table */}
-      <div className="overflow-x-auto flex-1">
-        <table className="w-full text-left border-collapse">
+      <div className="overflow-x-auto flex-1 custom-scrollbar">
+        <table className="w-full text-left border-collapse min-w-[720px]">
           <thead>
             <tr className="bg-gray-50 border-b border-gray-200 text-xs font-medium text-gray-500 uppercase tracking-wider">
               <th className="px-4 py-3">Priority</th>

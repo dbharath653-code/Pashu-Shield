@@ -29,8 +29,8 @@ export default function FacilityManagement() {
           </div>
        </div>
 
-       <div className="flex-1 overflow-auto">
-          <table className="w-full text-left text-sm whitespace-nowrap">
+       <div className="flex-1 overflow-x-auto overflow-y-auto custom-scrollbar">
+          <table className="w-full text-left text-sm whitespace-nowrap min-w-[640px]">
              <thead className="bg-gray-100 text-gray-600 font-medium sticky top-0 shadow-sm z-10">
                 <tr>
                    <th className="px-6 py-4">Facility Name & ID</th>

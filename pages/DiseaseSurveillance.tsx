@@ -168,8 +168,8 @@ export default function DiseaseSurveillance() {
       </div>
 
       {/* Table */}
-      <div className="flex-1 overflow-auto">
-        <table className="min-w-full divide-y divide-gray-200">
+      <div className="flex-1 overflow-x-auto overflow-y-auto custom-scrollbar">
+        <table className="min-w-full divide-y divide-gray-200 min-w-[720px]">
           <thead className="bg-gray-100 text-gray-700 text-xs font-bold uppercase tracking-wider sticky top-0 shadow-xs">
             <tr>
               {["Date", "Report #", "Village", "District", "Species", "Disease", "Affected", "Deaths", "Triage Risk", "Status"].map(

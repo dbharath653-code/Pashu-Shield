@@ -250,15 +250,15 @@ export default function AIEarlyWarning() {
         <button onClick={() => setActiveTab("Spatiotemporal Clustering")} className={`px-4 py-2 text-sm font-medium rounded-md ${activeTab === "Spatiotemporal Clustering" ? "bg-brandBlue text-white" : "text-gray-600 hover:bg-gray-50"}`}>Spatiotemporal Clustering</button>
       </div>
 
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-col lg:flex-row flex-1 overflow-y-auto lg:overflow-hidden">
         {/* Left Sidebar Form */}
-        <div className="w-80 border-r border-gray-200 bg-gray-50 flex flex-col h-full">
+        <div className="w-full lg:w-80 border-b lg:border-b-0 lg:border-r border-gray-200 bg-gray-50 flex flex-col shrink-0">
            <div className="p-4 border-b border-gray-200 bg-white">
               <h2 className="font-bold text-gray-800 flex items-center gap-2"><BarChart2 size={18} className="text-brandBlue"/> Surveillance Inputs</h2>
               <p className="text-xs text-gray-500 mt-1">Configure parameters for ML prediction</p>
            </div>
            
-           <div className="flex-1 overflow-y-auto p-4 space-y-4">
+           <div className="p-4 space-y-4">
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-gray-700">Disease</label>
                 <select name="disease" value={formData.disease} onChange={handleChange} className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brandBlue focus:ring-brandBlue sm:text-sm p-2 border bg-white">

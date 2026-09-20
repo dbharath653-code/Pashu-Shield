@@ -11,20 +11,21 @@ export default function RoleManagement() {
           <p className="text-sm text-gray-500">Configure access levels for each system role.</p>
        </div>
 
-       <div className="flex-1 overflow-auto p-5">
-          <div className="flex gap-4 mb-6">
-             <div className="w-64 shrink-0">
+       <div className="flex-1 overflow-auto p-3 sm:p-5">
+          <div className="flex flex-col sm:flex-row gap-4 mb-6">
+             <div className="w-full sm:w-64 shrink-0">
                 <label className="block text-sm font-medium text-gray-700 mb-2">Select Role to Edit</label>
-                <select className="w-full border border-gray-300 rounded-lg p-2 focus:ring-brandBlue focus:border-brandBlue">
+                <select className="w-full border border-gray-300 rounded-lg p-2 focus:ring-brandBlue focus:border-brandBlue text-xs sm:text-sm">
                    {roles.map(r => <option key={r}>{r}</option>)}
                 </select>
              </div>
-             <div className="self-end pb-1">
-                <button className="px-4 py-2 bg-brandBlue text-white font-medium rounded-lg hover:bg-blue-700">Save Permissions</button>
+             <div className="sm:self-end pb-1">
+                <button className="w-full sm:w-auto px-4 py-2 bg-brandBlue text-white font-medium rounded-lg hover:bg-blue-700 text-xs sm:text-sm touch-manipulation min-h-[38px]">Save Permissions</button>
              </div>
           </div>
 
-          <table className="w-full text-left text-sm whitespace-nowrap border-collapse border border-gray-200">
+          <div className="overflow-x-auto custom-scrollbar">
+            <table className="w-full text-left text-sm whitespace-nowrap border-collapse border border-gray-200 min-w-[500px]">
              <thead className="bg-gray-100 text-gray-700">
                 <tr>
                    <th className="p-3 border border-gray-200">Module</th>
@@ -44,6 +45,7 @@ export default function RoleManagement() {
                 ))}
              </tbody>
           </table>
+          </div>
        </div>
     </div>
   );
