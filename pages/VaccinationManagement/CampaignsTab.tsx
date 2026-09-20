@@ -13,8 +13,8 @@ export default function CampaignsTab() {
         </button>
       </div>
 
-      <div className="overflow-x-auto">
-        <table className="w-full text-left border-collapse">
+      <div className="overflow-x-auto custom-scrollbar">
+        <table className="w-full text-left border-collapse min-w-[640px]">
           <thead>
             <tr className="bg-gray-50 border-b border-gray-200 text-xs font-medium text-gray-500 uppercase tracking-wider">
               <th className="px-6 py-4">Campaign Name</th>

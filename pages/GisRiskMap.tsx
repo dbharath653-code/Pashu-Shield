@@ -226,60 +226,60 @@ export default function GisRiskMap() {
          </div>
       </div>
 
-      <div className="flex flex-1 h-full relative z-0">
-        {/* Left Sidebar */}
-        <div className="w-64 border-r border-gray-200 p-4 flex flex-col gap-6 overflow-y-auto bg-gray-50/50">
+      <div className="flex flex-col lg:flex-row flex-1 h-full relative z-0 overflow-y-auto lg:overflow-hidden">
+        {/* Left Sidebar Filters */}
+        <div className="w-full lg:w-64 border-b lg:border-b-0 lg:border-r border-gray-200 p-4 flex flex-col gap-4 sm:gap-6 overflow-y-auto bg-gray-50/50 shrink-0">
           <div>
-            <h3 className="text-sm font-semibold text-gray-800 mb-3">View Level</h3>
-            <div className="space-y-2">
+            <h3 className="text-sm font-semibold text-gray-800 mb-2 sm:mb-3">View Level</h3>
+            <div className="grid grid-cols-3 sm:grid-cols-6 lg:grid-cols-1 gap-2">
               {['State', 'District', 'Taluka/Block', 'Village', 'Farm', 'Animal'].map(level => (
-                <label key={level} className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+                <label key={level} className="flex items-center gap-2 text-xs sm:text-sm text-gray-600 cursor-pointer">
                   <input type="radio" name="viewLevel" checked={viewLevel === level} onChange={() => setViewLevel(level)} className="text-brandBlue focus:ring-brandBlue" />
-                  {level}
+                  <span>{level}</span>
                 </label>
               ))}
             </div>
           </div>
 
           <div>
-            <h3 className="text-sm font-semibold text-gray-800 mb-3">Disease Types</h3>
-            <div className="space-y-2">
+            <h3 className="text-sm font-semibold text-gray-800 mb-2 sm:mb-3">Disease Types</h3>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-1 gap-2">
               {['All Diseases', 'FMD', 'Brucellosis', 'PPR', 'Anthrax', 'LSD'].map(disease => (
-                <label key={disease} className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+                <label key={disease} className="flex items-center gap-2 text-xs sm:text-sm text-gray-600 cursor-pointer">
                   <input type="radio" name="diseaseType" checked={selectedDisease === disease} onChange={() => setSelectedDisease(disease)} className="text-brandBlue rounded focus:ring-brandBlue" />
-                  {disease}
+                  <span>{disease}</span>
                 </label>
               ))}
             </div>
           </div>
 
           <div>
-            <h3 className="text-sm font-semibold text-gray-800 mb-3">Risk Level</h3>
-            <div className="space-y-2">
-              <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+            <h3 className="text-sm font-semibold text-gray-800 mb-2 sm:mb-3">Risk Level</h3>
+            <div className="flex flex-wrap lg:flex-col gap-2">
+              <label className="flex items-center gap-2 text-xs sm:text-sm text-gray-600 cursor-pointer">
                 <input type="checkbox" checked={selectedRiskLevels.includes('High Risk')} onChange={() => toggleRisk('High Risk')} className="rounded text-red-500 focus:ring-red-500" />
                 <span className="w-3 h-3 bg-red-500 rounded-sm inline-block"></span> High Risk
               </label>
-              <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+              <label className="flex items-center gap-2 text-xs sm:text-sm text-gray-600 cursor-pointer">
                 <input type="checkbox" checked={selectedRiskLevels.includes('Moderate Risk')} onChange={() => toggleRisk('Moderate Risk')} className="rounded text-orange-500 focus:ring-orange-500" />
                 <span className="w-3 h-3 bg-orange-500 rounded-sm inline-block"></span> Moderate Risk
               </label>
-              <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+              <label className="flex items-center gap-2 text-xs sm:text-sm text-gray-600 cursor-pointer">
                 <input type="checkbox" checked={selectedRiskLevels.includes('Low Risk')} onChange={() => toggleRisk('Low Risk')} className="rounded text-green-500 focus:ring-green-500" />
                 <span className="w-3 h-3 bg-green-500 rounded-sm inline-block"></span> Low Risk
               </label>
             </div>
           </div>
 
-          <div className="mt-auto space-y-2">
-             <button onClick={handleUseLocation} className="w-full bg-white border border-gray-300 text-gray-700 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 hover:bg-gray-50 shadow-sm">
+          <div className="mt-auto pt-2">
+             <button onClick={handleUseLocation} className="w-full bg-white border border-gray-300 text-gray-700 py-2 rounded-lg text-xs sm:text-sm font-medium flex items-center justify-center gap-2 hover:bg-gray-50 shadow-xs touch-manipulation min-h-[38px]">
                 <MapPin size={16}/> Use My Location
              </button>
           </div>
         </div>
 
         {/* Map Area */}
-        <div className={`flex-1 relative z-0 ${isOffline ? 'bg-[#e5e5e5]' : ''}`}>
+        <div className={`flex-1 relative z-0 min-h-[350px] lg:min-h-0 ${isOffline ? 'bg-[#e5e5e5]' : ''}`}>
           {mapEngine === 'google' && !isOffline ? (
             <PashuMap
               center={currentLocation || mapCenter}
@@ -340,7 +340,7 @@ export default function GisRiskMap() {
         </div>
 
         {/* Right Sidebar */}
-        <div className="w-72 border-l border-gray-200 p-4 flex flex-col gap-6 overflow-y-auto bg-gray-50/50">
+        <div className="w-full lg:w-72 border-t lg:border-t-0 lg:border-l border-gray-200 p-4 flex flex-col gap-4 sm:gap-6 overflow-y-auto bg-gray-50/50 shrink-0">
           <div>
             <h3 className="text-sm font-semibold text-gray-800 mb-4 flex justify-between">
               <span>Risk Summary</span>

@@ -4,10 +4,16 @@ import { useAuth } from "../context/AuthContext";
 import { 
   LayoutDashboard, Activity, Map as MapIcon, BrainCircuit, FileText, 
   HeartPulse, Stethoscope, TestTube2, Syringe, BellRing, Languages, 
-  WifiOff, Info, BarChart3, Settings, Home, Shield, Key, UserPlus
+  WifiOff, Info, BarChart3, Settings, Home, Shield, Key, UserPlus, X
 } from "lucide-react";
 
-export default function Sidebar() {
+interface SidebarProps {
+  onClose?: () => void;
+  className?: string;
+  isMobile?: boolean;
+}
+
+export default function Sidebar({ onClose, className = "", isMobile = false }: SidebarProps) {
   const { t } = useMultilingual();
   const { role } = useAuth();
 
@@ -130,18 +136,33 @@ export default function Sidebar() {
   const navGroups = getNavGroups();
 
   return (
-    <div className="w-64 h-screen bg-sidebar text-white flex flex-col fixed left-0 top-0 overflow-hidden shadow-xl z-30">
+    <div
+      className={`w-64 h-full bg-sidebar text-white flex flex-col overflow-hidden shadow-xl ${className}`}
+    >
       {/* Brand Header */}
-      <div className="p-4 flex items-center gap-3 border-b border-gray-700/80 shrink-0 bg-gray-900/40">
-        <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center shrink-0 shadow-md">
-          <Shield size={20} className="text-white" />
+      <div className="p-4 flex items-center justify-between border-b border-gray-700/80 shrink-0 bg-gray-900/40">
+        <div className="flex items-center gap-3 overflow-hidden">
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center shrink-0 shadow-md">
+            <Shield size={20} className="text-white" />
+          </div>
+          <div className="overflow-hidden">
+            <h2 className="text-sm font-black tracking-tight text-white">Pashu-Shield</h2>
+            <p className="text-[11px] text-blue-300 font-medium truncate">
+              {role.replace("_", " ")}
+            </p>
+          </div>
         </div>
-        <div className="overflow-hidden">
-          <h2 className="text-sm font-black tracking-tight text-white">Pashu-Shield</h2>
-          <p className="text-[11px] text-blue-300 font-medium truncate">
-            {role.replace("_", " ")}
-          </p>
-        </div>
+
+        {/* Close button on mobile/tablet drawer */}
+        {isMobile && (
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
+            aria-label="Close navigation"
+          >
+            <X size={20} />
+          </button>
+        )}
       </div>
 
       {/* Nav List */}
@@ -161,8 +182,11 @@ export default function Sidebar() {
                     <NavLink
                       to={item.path}
                       end={item.path === "/" || item.path === "/farmer"}
+                      onClick={() => {
+                        if (isMobile && onClose) onClose();
+                      }}
                       className={({ isActive }) =>
-                        `flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all duration-150 ${
+                        `flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all duration-150 min-h-[40px] touch-manipulation ${
                           isActive
                             ? "bg-brandBlue text-white shadow-md font-bold"
                             : "text-gray-300 hover:bg-white/10 hover:text-white"

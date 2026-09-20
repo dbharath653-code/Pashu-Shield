@@ -47,8 +47,8 @@ export default function DistrictTable({ data }: Props) {
           </div>
        </div>
        
-       <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm whitespace-nowrap">
+       <div className="overflow-x-auto custom-scrollbar">
+          <table className="w-full text-left text-sm whitespace-nowrap min-w-[700px]">
              <thead className="bg-gray-50 text-gray-600 font-medium border-b border-gray-200">
                 <tr>
                    <th className="px-6 py-4 cursor-pointer hover:bg-gray-100"><div className="flex items-center gap-1">District <ArrowUpDown size={14}/></div></th>

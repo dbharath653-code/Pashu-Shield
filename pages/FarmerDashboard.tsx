@@ -8,6 +8,7 @@ import {
 import { useMultilingual } from "../context/MultilingualContext";
 import { useAuth } from "../context/AuthContext";
 import PashuMap from "../components/PashuMap";
+import ActivityFeedWidget from "../components/ActivityFeedWidget";
 
 export default function FarmerDashboard() {
   const { t, language } = useMultilingual();
@@ -107,12 +108,12 @@ export default function FarmerDashboard() {
   ];
 
   return (
-    <div className="space-y-6 pb-12 max-w-7xl mx-auto">
+    <div className="space-y-6 pb-12 max-w-7xl mx-auto overflow-hidden">
       {/* Farmer Welcome Banner with Emergency 1962 Helpline */}
-      <div className="bg-gradient-to-r from-emerald-800 via-teal-800 to-blue-900 rounded-3xl p-6 lg:p-8 text-white shadow-lg relative overflow-hidden">
+      <div className="bg-gradient-to-r from-emerald-800 via-teal-800 to-blue-900 rounded-2xl sm:rounded-3xl p-5 sm:p-6 lg:p-8 text-white shadow-lg relative overflow-hidden">
         <div className="absolute right-0 top-0 bottom-0 w-1/3 bg-white/5 transform skew-x-12 pointer-events-none" />
         
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-5 sm:gap-6 relative z-10">
           <div>
             <div className="flex items-center gap-2 mb-2">
               <span className="px-3 py-1 bg-white/20 backdrop-blur rounded-full text-xs font-bold tracking-wide uppercase">
@@ -122,10 +123,10 @@ export default function FarmerDashboard() {
                 📍 {user?.village || "Walwur"}, {user?.district || "Pune"}
               </span>
             </div>
-            <h1 className="text-2xl md:text-3xl font-black tracking-tight">
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-black tracking-tight">
               {language === "mr" ? `नमस्कार, ${user?.full_name || "शेतकरी मित्र"}` : `Welcome, ${user?.full_name || "Livestock Keeper"}`}
             </h1>
-            <p className="text-emerald-100 text-sm mt-1 max-w-xl">
+            <p className="text-emerald-100 text-xs sm:text-sm mt-1 max-w-xl">
               {language === "mr"
                 ? "पशु-शील्ड: महाराष्ट्र शासनाची २४x७ पशुआरोग्य सुरक्षा प्रणाली. कोणत्याही समस्येसाठी खालील बटणे दाबा."
                 : "24x7 livestock surveillance & veterinary emergency assistance platform for Maharashtra."}
@@ -135,41 +136,41 @@ export default function FarmerDashboard() {
           <div className="flex flex-col sm:flex-row items-center gap-3">
             <a
               href="tel:1962"
-              className="w-full sm:w-auto px-6 py-3.5 bg-red-600 hover:bg-red-700 text-white rounded-2xl font-bold flex items-center justify-center gap-2 shadow-lg transition-transform hover:scale-105 active:scale-95"
+              className="w-full sm:w-auto px-5 sm:px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl sm:rounded-2xl font-bold flex items-center justify-center gap-2 shadow-lg transition-transform hover:scale-105 active:scale-95 touch-manipulation min-h-[44px]"
             >
-              <PhoneCall size={20} className="animate-bounce" />
-              <span>{t("farmer.emergencyCall")}</span>
+              <PhoneCall size={18} className="animate-bounce" />
+              <span className="text-sm">{t("farmer.emergencyCall")}</span>
             </a>
           </div>
         </div>
       </div>
 
-      {/* Main Touch-Friendly Large Action Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Main Touch-Friendly Large Action Grid (1 col on mobile 320-400px, 2 col on sm, 4 col on lg) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {actionCards.map((card) => {
           const Icon = card.icon;
           return (
             <button
               key={card.id}
               onClick={card.onClick}
-              className={`p-6 rounded-3xl bg-gradient-to-br ${card.color} ${card.textColor} shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 text-left flex flex-col justify-between min-h-[160px] relative overflow-hidden group focus:outline-none focus:ring-4 focus:ring-blue-300`}
+              className={`p-5 sm:p-6 rounded-2xl sm:rounded-3xl bg-gradient-to-br ${card.color} ${card.textColor} shadow-xs hover:shadow-md transition-all duration-200 text-left flex flex-col justify-between min-h-[140px] sm:min-h-[160px] relative overflow-hidden group focus:outline-none focus:ring-4 focus:ring-blue-300 touch-manipulation`}
             >
               <div className="flex justify-between items-start">
-                <div className="p-3 bg-white/20 backdrop-blur rounded-2xl">
-                  <Icon size={28} />
+                <div className="p-2.5 sm:p-3 bg-white/20 backdrop-blur rounded-xl sm:rounded-2xl">
+                  <Icon size={24} />
                 </div>
                 {card.badge && (
-                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-white/30 tracking-wider uppercase">
+                  <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-white/30 tracking-wider uppercase">
                     {card.badge}
                   </span>
                 )}
               </div>
 
-              <div className="mt-4">
-                <h3 className="text-lg font-bold leading-tight group-hover:underline">
+              <div className="mt-3">
+                <h3 className="text-base sm:text-lg font-bold leading-tight group-hover:underline">
                   {card.title}
                 </h3>
-                <p className="text-xs text-white/80 mt-1 line-clamp-1">{card.subtitle}</p>
+                <p className="text-xs text-white/80 mt-0.5 line-clamp-1">{card.subtitle}</p>
               </div>
             </button>
           );
@@ -179,29 +180,29 @@ export default function FarmerDashboard() {
       {/* Two Column Section: Recent Cases & Local Facilities Map */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Recent Reports Tracking */}
-        <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm space-y-4">
+        <div className="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-6 border border-gray-200/80 shadow-xs space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="font-bold text-gray-900 text-lg flex items-center gap-2">
-              <Clock className="text-blue-600" size={20} />
+            <h3 className="font-bold text-gray-900 text-base sm:text-lg flex items-center gap-2">
+              <Clock className="text-blue-600" size={18} />
               <span>{language === "mr" ? "माझे अलीकडील अहवाल" : "My Reported Cases"}</span>
             </h3>
             <button
               onClick={() => navigate("/reporting")}
-              className="text-xs text-blue-600 font-bold hover:underline flex items-center gap-1"
+              className="text-xs text-blue-600 font-bold hover:underline flex items-center gap-1 p-1"
             >
               <span>{language === "mr" ? "सर्व पहा" : "View All"}</span>
-              <ArrowRight size={14} />
+              <ArrowRight size={13} />
             </button>
           </div>
 
-          <div className="space-y-3">
+          <div className="space-y-2.5">
             {recentReports.length === 0 ? (
-              <div className="text-center py-8 text-gray-400">
-                <ShieldCheck size={40} className="mx-auto text-emerald-500 mb-2" />
-                <p className="text-sm font-semibold text-gray-700">
+              <div className="text-center py-6 text-gray-400">
+                <ShieldCheck size={36} className="mx-auto text-emerald-500 mb-2" />
+                <p className="text-xs sm:text-sm font-semibold text-gray-700">
                   {language === "mr" ? "कोणतीही सक्रिय रोग तक्रार नाही" : "No active disease reports recorded."}
                 </p>
-                <p className="text-xs text-gray-400 mt-1">
+                <p className="text-[11px] text-gray-400 mt-0.5">
                   {language === "mr" ? "सर्व जनावरे निरोगी आहेत." : "All livestock currently marked healthy."}
                 </p>
               </div>
@@ -209,22 +210,22 @@ export default function FarmerDashboard() {
               recentReports.map((r) => (
                 <div
                   key={r.id}
-                  className="p-4 rounded-2xl bg-gray-50 border border-gray-200/60 flex items-center justify-between hover:bg-blue-50/40 transition-colors"
+                  className="p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-gray-50 border border-gray-200/60 flex items-center justify-between hover:bg-blue-50/40 transition-colors"
                 >
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-gray-900 text-sm">{r.species}</span>
-                      <span className="text-xs text-gray-500 font-mono">({r.reportNumber || r.id})</span>
+                  <div className="min-w-0 pr-2">
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-bold text-gray-900 text-xs sm:text-sm">{r.species}</span>
+                      <span className="text-[10px] text-gray-500 font-mono truncate">({r.reportNumber || r.id})</span>
                     </div>
-                    <p className="text-xs text-gray-600 mt-0.5">
+                    <p className="text-xs text-gray-600 mt-0.5 truncate">
                       {r.disease || "Suspected Signs"} • {r.village}, {r.district}
                     </p>
-                    <span className="inline-block mt-1 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800">
+                    <span className="inline-block mt-1 px-2 py-0.2 rounded text-[9px] font-bold bg-amber-100 text-amber-800">
                       Triage: {r.triageRiskLevel || "MODERATE"}
                     </span>
                   </div>
 
-                  <span className="px-3 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-800">
+                  <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-800 shrink-0">
                     {r.status}
                   </span>
                 </div>
@@ -234,27 +235,34 @@ export default function FarmerDashboard() {
         </div>
 
         {/* Nearby Facilities & GIS Map */}
-        <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm space-y-4">
+        <div className="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-6 border border-gray-200/80 shadow-xs space-y-3 sm:space-y-4 flex flex-col min-h-[340px]">
           <div className="flex items-center justify-between">
-            <h3 className="font-bold text-gray-900 text-lg flex items-center gap-2">
-              <MapPin className="text-red-500" size={20} />
+            <h3 className="font-bold text-gray-900 text-base sm:text-lg flex items-center gap-2">
+              <MapPin className="text-red-500" size={18} />
               <span>{t("farmer.nearbyHelp")}</span>
             </h3>
-            <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full">
+            <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
               MVU Active (1962)
             </span>
           </div>
 
-          <PashuMap
-            height="260px"
-            center={[18.8288, 74.3789]}
-            zoom={10}
-            points={[
-              { id: "FAC-1", name: "Shirur Veterinary Polyclinic", lat: 18.8260, lng: 74.3750, type: "facility" },
-              { id: "CL-1", name: "Shirur Containment Zone", lat: 18.8288, lng: 74.3789, type: "cluster", riskLevel: "High Risk" }
-            ]}
-          />
+          <div className="flex-1 rounded-xl sm:rounded-2xl overflow-hidden border border-gray-200 min-h-[220px]">
+            <PashuMap
+              height="100%"
+              center={[18.8288, 74.3789]}
+              zoom={10}
+              points={[
+                { id: "FAC-1", name: "Shirur Veterinary Polyclinic", lat: 18.8260, lng: 74.3750, type: "facility" },
+                { id: "CL-1", name: "Shirur Containment Zone", lat: 18.8288, lng: 74.3789, type: "cluster", riskLevel: "High Risk" }
+              ]}
+            />
+          </div>
         </div>
+      </div>
+
+      {/* Activity Feed on Farmer Dashboard */}
+      <div className="w-full">
+        <ActivityFeedWidget maxItems={6} />
       </div>
     </div>
   );

@@ -1,19 +1,33 @@
 import { useState } from "react";
 import { 
   Bell, Menu, Globe, 
-  ChevronDown, Shield, Check, Key, LogOut
+  ChevronDown, Shield, Check, Key, LogOut,
+  Wifi, WifiOff, RefreshCw, Database
 } from "lucide-react";
 import { useAlerts } from "../context/AlertsContext";
 import { useMultilingual, LANGUAGE_NAMES } from "../context/MultilingualContext";
 import type { LanguageCode } from "../context/MultilingualContext";
 import { useAuth } from "../context/AuthContext";
 import type { RoleType } from "../context/AuthContext";
+import { useSync } from "../services/SyncService";
 import { useNavigate } from "react-router-dom";
 
-export default function Topbar() {
+interface TopbarProps {
+  onOpenMobileMenu?: () => void;
+}
+
+export default function Topbar({ onOpenMobileMenu }: TopbarProps) {
   const { unreadCount } = useAlerts();
   const { language, setLanguage, t } = useMultilingual();
-  const { user, role, setRole, wsStatus, logout } = useAuth();
+  const { user, role, setRole, logout } = useAuth();
+  const { 
+    isOnline, 
+    serverReachable, 
+    pendingCount, 
+    isSyncing, 
+    openSyncModal,
+    feedStatus
+  } = useSync();
   const navigate = useNavigate();
 
   const [showRoleDropdown, setShowRoleDropdown] = useState(false);
@@ -30,52 +44,106 @@ export default function Topbar() {
   ];
 
   return (
-    <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-4 lg:px-6 sticky top-0 z-40 shadow-xs">
-      {/* Left Title & Mobile Menu */}
-      <div className="flex items-center gap-3">
-        <button className="lg:hidden text-gray-500 hover:text-gray-700 p-1">
-          <Menu size={20} />
+    <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-3 sm:px-4 lg:px-6 sticky top-0 z-40 shadow-xs">
+      {/* Left Title & Mobile Hamburger Button */}
+      <div className="flex items-center gap-2.5 sm:gap-3">
+        <button 
+          onClick={onOpenMobileMenu}
+          aria-label="Open navigation menu"
+          className="lg:hidden text-gray-600 hover:text-gray-900 p-2 rounded-xl hover:bg-gray-100 transition-colors touch-manipulation min-w-[40px] min-h-[40px] flex items-center justify-center"
+        >
+          <Menu size={22} />
         </button>
         <div>
-          <h1 className="text-base lg:text-lg font-bold text-gray-900 leading-tight">
+          <h1 className="text-base lg:text-lg font-black text-gray-900 leading-tight tracking-tight">
             Pashu-Shield
           </h1>
-          <p className="text-[11px] text-gray-500 hidden sm:block">
+          <p className="text-[11px] text-gray-500 hidden sm:block truncate max-w-xs md:max-w-md">
             Maharashtra Livestock Disease Surveillance & Response
           </p>
         </div>
       </div>
 
       {/* Right Controls */}
-      <div className="flex items-center gap-2 sm:gap-3">
-        {/* Real-time WebSocket Status Indicator */}
-        <div 
-          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${
-            wsStatus === "CONNECTED"
-              ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-              : wsStatus === "SYNCING"
-              ? "bg-blue-50 text-blue-700 border-blue-200"
-              : "bg-amber-50 text-amber-700 border-amber-200"
+      <div className="flex items-center gap-1.5 sm:gap-2.5">
+        {/* Offline / Smart Sync Status Indicator Button */}
+        <button
+          onClick={openSyncModal}
+          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold border transition-colors touch-manipulation ${
+            !isOnline
+              ? "bg-red-50 text-red-700 border-red-200 hover:bg-red-100"
+              : isSyncing
+              ? "bg-blue-50 text-blue-700 border-blue-200 animate-pulse"
+              : pendingCount > 0
+              ? "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100"
+              : !serverReachable
+              ? "bg-amber-50 text-amber-800 border-amber-200"
+              : "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100"
           }`}
-          title={`Real-Time Synchronization: ${wsStatus}`}
+          title={
+            !isOnline
+              ? "Offline Mode - Click to view offline queue"
+              : pendingCount > 0
+              ? `${pendingCount} report(s) pending sync`
+              : "Synchronized"
+          }
+        >
+          {!isOnline ? (
+            <WifiOff size={14} className="text-red-600 shrink-0" />
+          ) : isSyncing ? (
+            <RefreshCw size={14} className="animate-spin text-blue-600 shrink-0" />
+          ) : pendingCount > 0 ? (
+            <Database size={14} className="text-amber-600 shrink-0" />
+          ) : (
+            <Wifi size={14} className="text-emerald-600 shrink-0" />
+          )}
+
+          <span className="hidden sm:inline">
+            {!isOnline
+              ? "Offline"
+              : isSyncing
+              ? "Syncing..."
+              : pendingCount > 0
+              ? `Sync: ${pendingCount}`
+              : "Synced"}
+          </span>
+
+          {/* On small mobile: show count badge if pending */}
+          {pendingCount > 0 && (
+            <span className="sm:hidden px-1.5 py-0.2 rounded-full text-[10px] font-black bg-amber-200 text-amber-900">
+              {pendingCount}
+            </span>
+          )}
+        </button>
+
+        {/* Live Stream Indicator (Desktop/Tablet) */}
+        <div 
+          className={`hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${
+            feedStatus === "LIVE"
+              ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+              : feedStatus === "UPDATING"
+              ? "bg-blue-50 text-blue-700 border-blue-200"
+              : "bg-gray-50 text-gray-600 border-gray-200"
+          }`}
+          title={`Real-Time Activity Stream: ${feedStatus}`}
         >
           <span 
             className={`w-2 h-2 rounded-full ${
-              wsStatus === "CONNECTED" ? "bg-emerald-500 animate-pulse" : "bg-amber-500"
+              feedStatus === "LIVE" ? "bg-emerald-500 animate-pulse" : "bg-amber-500"
             }`}
           />
-          <span className="hidden md:inline">{wsStatus}</span>
+          <span>{feedStatus}</span>
         </div>
 
-        {/* Dedicated Portals & Login Direct Button */}
+        {/* Dedicated Portals & Login Direct Button (Hidden on smallest mobile, icon-only on mobile) */}
         <button
           onClick={() => navigate("/login")}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-all shadow-xs"
+          className="hidden sm:flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-all shadow-xs"
           title="Access Separate Role Login & Sign Up Portals"
         >
           <Key size={13} />
-          <span className="hidden sm:inline">Role Portals</span>
-          <span className="sm:hidden">Login</span>
+          <span className="hidden md:inline">Role Portals</span>
+          <span className="md:hidden">Portals</span>
         </button>
 
         {/* 8-Language Switcher Dropdown */}
@@ -86,10 +154,11 @@ export default function Topbar() {
               setShowRoleDropdown(false);
               setShowUserDropdown(false);
             }}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 text-xs font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
+            className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 rounded-lg border border-gray-200 text-xs font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
           >
             <Globe size={14} className="text-blue-600" />
-            <span>{LANGUAGE_NAMES[language]?.native || "English"}</span>
+            <span className="hidden sm:inline">{LANGUAGE_NAMES[language]?.native || "English"}</span>
+            <span className="sm:hidden">{language.toUpperCase()}</span>
             <ChevronDown size={12} className="text-gray-400" />
           </button>
 
@@ -125,10 +194,10 @@ export default function Topbar() {
               setShowLangDropdown(false);
               setShowUserDropdown(false);
             }}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 text-xs font-semibold text-gray-800 transition-colors border border-gray-300/70"
+            className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 text-xs font-semibold text-gray-800 transition-colors border border-gray-300/70"
           >
-            <Shield size={14} className="text-indigo-600" />
-            <span className="truncate max-w-[110px] sm:max-w-none">
+            <Shield size={14} className="text-indigo-600 shrink-0" />
+            <span className="truncate max-w-[70px] sm:max-w-[120px]">
               {rolesList.find((r) => r.role === role)?.badge || role}
             </span>
             <ChevronDown size={12} className="text-gray-500" />
@@ -172,12 +241,13 @@ export default function Topbar() {
         {/* Alert Bell */}
         <button
           onClick={() => navigate("/alerts")}
-          className="text-gray-500 hover:text-gray-700 relative p-1.5 rounded-lg hover:bg-gray-100 transition-colors"
+          className="text-gray-500 hover:text-gray-700 relative p-2 rounded-lg hover:bg-gray-100 transition-colors touch-manipulation min-w-[36px] min-h-[36px] flex items-center justify-center"
           title={t("nav.alerts")}
+          aria-label={t("nav.alerts")}
         >
           <Bell size={18} />
           {unreadCount > 0 && (
-            <span className="absolute 0 top-0.5 right-0.5 bg-red-600 text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center animate-pulse">
+            <span className="absolute top-1 right-1 bg-red-600 text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center animate-pulse">
               {unreadCount}
             </span>
           )}
@@ -191,7 +261,8 @@ export default function Topbar() {
               setShowRoleDropdown(false);
               setShowLangDropdown(false);
             }}
-            className="flex items-center gap-2 pl-2 border-l border-gray-200 hover:opacity-80 transition-opacity"
+            className="flex items-center gap-1.5 sm:gap-2 pl-1 sm:pl-2 border-l border-gray-200 hover:opacity-80 transition-opacity"
+            aria-label="User Profile Menu"
           >
             <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-700 text-white flex items-center justify-center text-xs font-bold shadow-xs">
               {user?.full_name ? user.full_name.charAt(0).toUpperCase() : "U"}
