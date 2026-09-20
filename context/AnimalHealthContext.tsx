@@ -38,6 +38,7 @@ interface AnimalHealthContextType {
   addAnimal: (animal: Animal) => Promise<void>;
   updateAnimal: (animal: Animal) => Promise<void>;
   addHerd: (herd: Herd) => Promise<void>;
+  refreshData: () => Promise<void>;
 }
 
 const AnimalHealthContext = createContext<AnimalHealthContextType | undefined>(undefined);
@@ -46,40 +47,88 @@ export function AnimalHealthProvider({ children }: { children: React.ReactNode }
   const [animals, setAnimals] = useState<Animal[]>([]);
   const [herds, setHerds] = useState<Herd[]>([]);
 
-  useEffect(() => {
-    const loadData = async () => {
-      await dbService.init();
-      const loadedAnimals = await dbService.getAll("animals");
-      const loadedHerds = await dbService.getAll("herds");
-      
-      // Sample records until a live backend is connected; reference values
-      // (breed, district) come from published datasets.
-      if (loadedAnimals.length === 0) {
-        const mockAnimal: Animal = {
-          id: "MH-PUN-CAT-001", tagId: "TAG-9921", species: "Cattle", breed: "Gir", sex: "Female", age: 4, ownerName: "Ramesh Patil", village: "Shirur", district: "Pune", healthStatus: "Under Observation", riskScore: 68, syncStatus: "Synced"
-        };
-        await dbService.save("animals", mockAnimal);
-        setAnimals([mockAnimal]);
-      } else {
-        setAnimals(loadedAnimals);
+  const loadData = async () => {
+    await dbService.init();
+
+    // Fetch from backend API
+    try {
+      const token = localStorage.getItem("auth_token");
+      const headers: Record<string, string> = {};
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+
+      const [animalsRes, herdsRes] = await Promise.all([
+        fetch("/api/v1/animals", { headers }),
+        fetch("/api/v1/animals/herds", { headers })
+      ]);
+
+      if (animalsRes.ok) {
+        const apiAnimals = await animalsRes.json();
+        if (Array.isArray(apiAnimals) && apiAnimals.length > 0) {
+          for (const a of apiAnimals) {
+            await dbService.save("animals", a);
+          }
+          setAnimals(apiAnimals);
+        }
       }
 
-      if (loadedHerds.length === 0) {
-        const mockHerd: Herd = {
-          id: "HRD-PUN-001", ownerName: "Ramesh Patil", village: "Shirur", district: "Pune", species: "Cattle", totalAnimals: 45, healthStatus: "Moderate Risk", riskScore: 45, syncStatus: "Synced"
-        };
-        await dbService.save("herds", mockHerd);
-        setHerds([mockHerd]);
-      } else {
-        setHerds(loadedHerds);
+      if (herdsRes.ok) {
+        const apiHerds = await herdsRes.json();
+        if (Array.isArray(apiHerds) && apiHerds.length > 0) {
+          for (const h of apiHerds) {
+            await dbService.save("herds", h);
+          }
+          setHerds(apiHerds);
+        }
+      }
+    } catch {
+      // offline fallback
+    }
+
+    const loadedAnimals = await dbService.getAll("animals");
+    if (loadedAnimals.length > 0) setAnimals(loadedAnimals);
+
+    const loadedHerds = await dbService.getAll("herds");
+    if (loadedHerds.length > 0) setHerds(loadedHerds);
+  };
+
+  useEffect(() => {
+    loadData();
+
+    const handleRealtime = (e: any) => {
+      const ev = e.detail;
+      if (ev?.type === "ANIMAL_REGISTERED") {
+        loadData();
       }
     };
-    loadData();
+    window.addEventListener("pashu_realtime_event", handleRealtime);
+    return () => window.removeEventListener("pashu_realtime_event", handleRealtime);
   }, []);
 
   const addAnimal = async (animal: Animal) => {
     await dbService.save("animals", animal);
     setAnimals(prev => [animal, ...prev]);
+
+    try {
+      const token = localStorage.getItem("auth_token");
+      await fetch("/api/v1/animals", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({
+          tag_id: animal.tagId,
+          species: animal.species,
+          breed: animal.breed,
+          sex: animal.sex,
+          age_years: animal.age,
+          village: animal.village,
+          district: animal.district
+        })
+      });
+    } catch {
+      // Offline fallback in IndexedDB
+    }
   };
 
   const updateAnimal = async (animal: Animal) => {
@@ -90,10 +139,29 @@ export function AnimalHealthProvider({ children }: { children: React.ReactNode }
   const addHerd = async (herd: Herd) => {
     await dbService.save("herds", herd);
     setHerds(prev => [herd, ...prev]);
+
+    try {
+      const token = localStorage.getItem("auth_token");
+      await fetch("/api/v1/animals/herds", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({
+          species: herd.species,
+          total_animals: herd.totalAnimals,
+          village: herd.village,
+          district: herd.district
+        })
+      });
+    } catch {
+      // Offline fallback in IndexedDB
+    }
   };
 
   return (
-    <AnimalHealthContext.Provider value={{ animals, herds, addAnimal, updateAnimal, addHerd }}>
+    <AnimalHealthContext.Provider value={{ animals, herds, addAnimal, updateAnimal, addHerd, refreshData: loadData }}>
       {children}
     </AnimalHealthContext.Provider>
   );
@@ -104,4 +172,3 @@ export function useAnimalHealth() {
   if (context === undefined) throw new Error("useAnimalHealth must be used within Provider");
   return context;
 }
-

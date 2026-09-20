@@ -1,17 +1,19 @@
 import { useState, useEffect, useMemo } from 'react';
 import { MapContainer, TileLayer, CircleMarker, Tooltip, GeoJSON } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
-import { Flame, ShieldAlert, ShieldCheck, WifiOff, Wifi, MapPin } from 'lucide-react';
+import { Flame, ShieldAlert, ShieldCheck, WifiOff, Wifi, MapPin, Globe, Layers } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { assetUrl } from '../services/AssetPaths';
+import PashuMap, { type MapPoint } from '../components/PashuMap';
 
 export default function GisRiskMap() {
   const { reports } = useAppContext();
-  const mapCenter = [19.7515, 75.7139]; // Maharashtra center
+  const mapCenter: [number, number] = [19.7515, 75.7139]; // Maharashtra center
 
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const [locationsDict, setLocationsDict] = useState<any[]>([]);
   const [geoJsonData, setGeoJsonData] = useState<any>(null);
+  const [mapEngine, setMapEngine] = useState<'google' | 'leaflet'>('google');
 
   // Filters
   const [selectedDisease, setSelectedDisease] = useState<string>('All Diseases');
@@ -99,10 +101,9 @@ export default function GisRiskMap() {
 
     // Calculate Risk and Match Coordinates
     return Object.values(stats).map(stat => {
-      let riskLevel = 'Low Risk';
+      let riskLevel: 'High Risk' | 'Moderate Risk' | 'Low Risk' | 'Critical' = 'Low Risk';
       let color = 'green';
       
-      // Scale thresholds slightly based on view level so we see variance
       const tAffectedHigh = viewLevel === 'State' ? 50 : viewLevel === 'District' ? 10 : 3;
       const tAffectedMod = viewLevel === 'State' ? 20 : viewLevel === 'District' ? 5 : 1;
       
@@ -115,9 +116,9 @@ export default function GisRiskMap() {
       }
 
       // Find Coordinates
-      let coords = null;
+      let coords: [number, number] | null = null;
       if (viewLevel === 'State') {
-        coords = [19.7515, 75.7139]; // center
+        coords = [19.7515, 75.7139];
       } else {
         const loc = locationsDict.find(l => l.district.toLowerCase() === stat.baseDistrict.toLowerCase());
         if (loc) {
@@ -140,6 +141,21 @@ export default function GisRiskMap() {
     }).filter(s => selectedRiskLevels.includes(s.riskLevel) && s.coords !== null);
   }, [reports, selectedDisease, selectedRiskLevels, locationsDict, viewLevel]);
 
+  // Convert districtStats to PashuMap points
+  const mapPoints: MapPoint[] = useMemo(() => {
+    return districtStats.map((s) => ({
+      id: s.key,
+      name: s.name,
+      lat: s.coords![0],
+      lng: s.coords![1],
+      type: "cluster" as const,
+      riskLevel: s.riskLevel,
+      details: `Diseases: ${s.diseases} | Reports: ${s.reports}`,
+      affected: s.affected,
+      deaths: s.deaths
+    }));
+  }, [districtStats]);
+
   // Summaries
   const highRiskCount = districtStats.filter(s => s.riskLevel === 'High Risk').length;
   const moderateRiskCount = districtStats.filter(s => s.riskLevel === 'Moderate Risk').length;
@@ -155,27 +171,58 @@ export default function GisRiskMap() {
   const [currentLocation, setCurrentLocation] = useState<[number, number] | null>(null);
 
   const handleUseLocation = () => {
-      if (navigator.geolocation) {
-          navigator.geolocation.getCurrentPosition(
-              (position) => {
-                  setCurrentLocation([position.coords.latitude, position.coords.longitude]);
-              },
-              () => alert("GPS failed or denied.")
-          );
-      }
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setCurrentLocation([position.coords.latitude, position.coords.longitude]);
+        },
+        () => alert("GPS failed or denied.")
+      );
+    }
   };
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 flex flex-col h-full overflow-hidden">
       
-      {/* Top Bar for Offline Status */}
-      <div className={`px-4 py-2 flex items-center justify-between text-sm ${isOffline ? 'bg-orange-100 text-orange-800' : 'bg-green-50 text-green-800'}`}>
-         <div className="flex items-center gap-2 font-medium">
-            {isOffline ? <WifiOff size={16}/> : <Wifi size={16}/>}
-            {isOffline ? 'OFFLINE MODE — using local administrative boundaries and cached reports.' : 'ONLINE / LIVE DATA — synchronized with central server.'}
+      {/* Top Bar for Engine Switcher & Offline Status */}
+      <div className={`px-4 py-2 flex flex-wrap items-center justify-between text-xs sm:text-sm border-b gap-2 ${
+        isOffline ? 'bg-orange-100 text-orange-900 border-orange-200' : 'bg-slate-50 text-slate-800 border-slate-200'
+      }`}>
+         <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5 font-semibold">
+              {isOffline ? <WifiOff size={16} className="text-orange-600"/> : <Wifi size={16} className="text-emerald-600"/>}
+              {isOffline ? 'OFFLINE MODE (Local Cache)' : 'ONLINE STREAM (Synchronized)'}
+            </div>
+
+            {/* Map Engine Toggle */}
+            <div className="hidden sm:flex items-center bg-gray-200/80 p-0.5 rounded-lg text-xs font-medium">
+              <button
+                onClick={() => setMapEngine('google')}
+                className={`px-2.5 py-1 rounded-md flex items-center gap-1 transition-all ${
+                  mapEngine === 'google'
+                    ? 'bg-white text-blue-700 shadow-2xs font-bold'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                <Globe size={13} />
+                <span>Google Maps API</span>
+              </button>
+              <button
+                onClick={() => setMapEngine('leaflet')}
+                className={`px-2.5 py-1 rounded-md flex items-center gap-1 transition-all ${
+                  mapEngine === 'leaflet'
+                    ? 'bg-white text-blue-700 shadow-2xs font-bold'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                <Layers size={13} />
+                <span>Leaflet Boundaries</span>
+              </button>
+            </div>
          </div>
-         <div>
-            Last synchronized at: {new Date().toLocaleTimeString()}
+
+         <div className="text-xs text-gray-500 font-mono">
+            {reports.length} Reports Loaded
          </div>
       </div>
 
@@ -224,7 +271,7 @@ export default function GisRiskMap() {
             </div>
           </div>
 
-          <div className="mt-auto">
+          <div className="mt-auto space-y-2">
              <button onClick={handleUseLocation} className="w-full bg-white border border-gray-300 text-gray-700 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 hover:bg-gray-50 shadow-sm">
                 <MapPin size={16}/> Use My Location
              </button>
@@ -233,52 +280,63 @@ export default function GisRiskMap() {
 
         {/* Map Area */}
         <div className={`flex-1 relative z-0 ${isOffline ? 'bg-[#e5e5e5]' : ''}`}>
-          <MapContainer center={currentLocation || (mapCenter as [number, number])} zoom={currentLocation ? 10 : 6} style={{ height: '100%', width: '100%' }}>
-            {!isOffline && (
-              <TileLayer
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-              />
-            )}
-            
-            {(isOffline || geoJsonData) && geoJsonData && (
-              <GeoJSON 
-                data={geoJsonData} 
-                style={{
-                  color: isOffline ? '#888' : '#3b82f6',
-                  weight: 2,
-                  fillOpacity: isOffline ? 0.3 : 0.05,
-                  fillColor: isOffline ? '#ccc' : '#3b82f6'
-                }} 
-              />
-            )}
+          {mapEngine === 'google' && !isOffline ? (
+            <PashuMap
+              center={currentLocation || mapCenter}
+              zoom={currentLocation ? 11 : 7}
+              points={mapPoints}
+              height="100%"
+              showSearch={true}
+              showHeatmapToggle={true}
+            />
+          ) : (
+            <MapContainer center={currentLocation || mapCenter} zoom={currentLocation ? 10 : 6} style={{ height: '100%', width: '100%' }}>
+              {!isOffline && (
+                <TileLayer
+                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                />
+              )}
+              
+              {(isOffline || geoJsonData) && geoJsonData && (
+                <GeoJSON 
+                  data={geoJsonData} 
+                  style={{
+                    color: isOffline ? '#888' : '#3b82f6',
+                    weight: 2,
+                    fillOpacity: isOffline ? 0.3 : 0.05,
+                    fillColor: isOffline ? '#ccc' : '#3b82f6'
+                  }} 
+                />
+              )}
 
-            {currentLocation && (
-              <CircleMarker center={currentLocation} radius={8} color="#2563eb" fillOpacity={1}>
-                <Tooltip permanent>You are here</Tooltip>
-              </CircleMarker>
-            )}
+              {currentLocation && (
+                <CircleMarker center={currentLocation} radius={8} color="#2563eb" fillOpacity={1}>
+                  <Tooltip permanent>You are here</Tooltip>
+                </CircleMarker>
+              )}
 
-            {districtStats.map((stat, i) => (
-              <CircleMarker 
-                key={i} 
-                center={stat.coords as [number, number]} 
-                radius={stat.riskLevel === 'High Risk' ? 20 : stat.riskLevel === 'Moderate Risk' ? 15 : 10} 
-                color={stat.color} 
-                fillOpacity={0.6}
-              >
-                <Tooltip>
-                   <div className="font-semibold text-gray-900">{stat.name}</div>
-                   <div className={`text-xs font-bold my-1 ${stat.color === 'red' ? 'text-red-600' : stat.color === 'orange' ? 'text-orange-600' : 'text-green-600'}`}>
-                      {stat.riskLevel}
-                   </div>
-                   <div className="text-xs text-gray-700">Affected: {stat.affected} | Deaths: {stat.deaths}</div>
-                   <div className="text-xs text-gray-700">Reports: {stat.reports}</div>
-                   <div className="text-xs text-gray-700">Diseases: {stat.diseases}</div>
-                </Tooltip>
-              </CircleMarker>
-            ))}
-          </MapContainer>
+              {districtStats.map((stat, i) => (
+                <CircleMarker 
+                  key={i} 
+                  center={stat.coords as [number, number]} 
+                  radius={stat.riskLevel === 'High Risk' ? 20 : stat.riskLevel === 'Moderate Risk' ? 15 : 10} 
+                  color={stat.color} 
+                  fillOpacity={0.6}
+                >
+                  <Tooltip>
+                     <div className="font-semibold text-gray-900">{stat.name}</div>
+                     <div className={`text-xs font-bold my-1 ${stat.color === 'red' ? 'text-red-600' : stat.color === 'orange' ? 'text-orange-600' : 'text-green-600'}`}>
+                        {stat.riskLevel}
+                     </div>
+                     <div className="text-xs text-gray-700">Affected: {stat.affected} | Deaths: {stat.deaths}</div>
+                     <div className="text-xs text-gray-700">Reports: {stat.reports}</div>
+                     <div className="text-xs text-gray-700">Diseases: {stat.diseases}</div>
+                  </Tooltip>
+                </CircleMarker>
+              ))}
+            </MapContainer>
+          )}
         </div>
 
         {/* Right Sidebar */}

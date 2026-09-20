@@ -103,7 +103,9 @@ console.log('Body text sample:', window.document.body.textContent.replace(/\s+/g
 
 // Walk each route through the router.
 const routes = ['/', '/surveillance', '/gis', '/ai', '/reporting', '/animal-health', '/vet-response', '/lab',
-  '/vaccination', '/alerts', '/multilingual', '/offline', '/disease-info', '/analytics', '/admin'];
+  '/vaccination', '/alerts', '/multilingual', '/offline', '/disease-info', '/analytics', '/admin',
+  '/login', '/login/farmer', '/login/veterinary', '/login/laboratory', '/login/government',
+  '/signup', '/signup/farmer', '/signup/veterinary', '/signup/laboratory', '/signup/government'];
 
 for (const route of routes) {
   problems.length = 0;

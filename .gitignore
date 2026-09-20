@@ -40,3 +40,9 @@ env/
 
 # Coverage
 coverage/
+
+# Database & Testing caches
+pashu_shield.db
+*.db
+*.sqlite3
+.pytest_cache/

@@ -42,11 +42,24 @@ export default function SampleDetails({ sample, onBack }: { sample: LabSample, o
   };
 
   const handleVerifyResult = async () => {
+    try {
+      const token = localStorage.getItem("auth_token");
+      await fetch(`/api/v1/labs/samples/${sample.id}/verify`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({ remarks: "Confirmatory result verified for official surveillance release." })
+      });
+    } catch (e) {
+      console.warn("Backend verify failed, using local update", e);
+    }
     await updateSample({
       ...sample,
       status: "Verified",
       verification: {
-        verifiedBy: "Dr. Lab Officer",
+        verifiedBy: "Dr. Lab Officer (NABL)",
         date: new Date().toISOString(),
         remarks: "Approved for release."
       }

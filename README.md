@@ -1,174 +1,270 @@
-# Pashu Shield — Livestock Health Surveillance
+# Pashu-Shield — Production Real-Time Livestock Health Surveillance & Veterinary Response Platform
 
-Offline-first web application for livestock health surveillance, outbreak early warning,
-laboratory sample tracking and vaccination management in Maharashtra.
-
-* **Frontend** — React 19 + TypeScript + Vite, Tailwind CSS 4, Leaflet maps, Recharts, PWA (installable, works offline).
-* **On-device AI** — disease prediction from a logistic-regression model (`public/model_weights.json`) and offline
-  speech-to-text through Whisper (`@xenova/transformers`, models in `public/models/`).
-* **Optional ML backend** — FastAPI service (`ml-backend/`) with a Random Forest outbreak-risk model,
-  Isolation-Forest anomaly detection, forecasting and DBSCAN-style clustering.
+**Pashu-Shield** is a full-stack, real-time, offline-first livestock disease surveillance, outbreak early-warning, and emergency veterinary response platform designed for Maharashtra state animal husbandry operations.
 
 ---
 
-## 1. Quick start
+## Architecture Overview
 
-```bash
-npm ci --ignore-scripts     # --ignore-scripts skips the optional sharp native download
-npm run dev                 # http://localhost:5173
 ```
-
-Production build and local verification:
-
-```bash
-npm run build    # type-check (tsc -b) + bundle into dist/
-npm run preview  # serve dist/ locally
-npm run smoke    # build, then headlessly render every route and assert key flows
+                                      +---------------------------------------------+
+                                      |            Pashu-Shield Frontend            |
+                                      | (React 19 + TypeScript + Vite + Tailwind 4) |
+                                      +---------------------------------------------+
+                                        /                  |                      \
+                     Role Dashboards   /                   |                       \   Accessibility
+            +-------------------------+                    |                        +---------------------------+
+            | 🌾 Farmer Portal        |                    |                        | 🎙️ Multi-turn Voice Assist|
+            | 👨‍⚕️ Veterinarian Queue   |                    |                        | 🌐 8 Language Dictionaries |
+            | 🧪 Laboratory Sample QR |                    |                        | 🗺️ Google Maps + Leaflet  |
+            | 🏛️ Government Surveillance|                   |                        | 📱 Offline IndexedDB PWA  |
+            +-------------------------+                    |                        +---------------------------+
+                                                           |
+                                                  WebSocket & REST APIs
+                                                           |
+                                      +---------------------------------------------+
+                                      |            FastAPI Backend Service          |
+                                      |       (Python 3.11 + Async Architecture)    |
+                                      +---------------------------------------------+
+                                        /         |             |          \       \
+       Authentication & RBAC           /          |             |           \       \  External Adapters
++------------------------------------+            |             |            \       +----------------------+
+| JWT Tokens + Bcrypt Hashing        |            |             |             \      | ICAR-NIVEDI NADRES   |
+| 6 User Roles + Strict Jurisdiction |            |             |              \     | DAHD Livestock Census|
+| Real-time Audit Logging            |            |             |               \    | Open-Meteo Weather   |
++------------------------------------+            |             |                \   | SMS (Fast2SMS/Mock)  |
+                                                  |             |                 \  | WhatsApp Cloud API   |
+                                       Database Layer           |                  \ +----------------------+
+            +-------------------------------------------+  Realtime Event Bus       \
+            | Primary: PostgreSQL 15 + PostGIS (Spatial)|  (WebSockets + Pub/Sub)    \ Clinical Triage Engine
+            | Local Dev Fallback: SQLite via aiosqlite  |                             +----------------------+
+            | Normalized Schemas: 18 relational tables  |                             | Rule-based Safety    |
+            | SQL DDL: migrations/001_initial_schema.sql|                             | Scikit-Learn ML RF   |
+            +-------------------------------------------+                             | Outbreak IsoForest   |
+                                                                                      +----------------------+
 ```
-
-Requirements: **Node.js ≥ 20.19** (Vite 8) and npm.
-
-### Scripts
-
-| Script | Purpose |
-| --- | --- |
-| `npm run dev` | Vite dev server with API proxy to the ML backend |
-| `npm run build` | Type-check and produce the production bundle in `dist/` |
-| `npm run preview` | Serve the production bundle locally |
-| `npm run typecheck` | `tsc -b` only |
-| `npm run lint` | oxlint |
-| `npm run smoke` | Build + headless render/interaction test of all routes |
 
 ---
 
-## 2. Optional ML backend
+## 1. What Was Implemented
 
-The **AI / Early Warning** screen talks to a FastAPI service. It is optional: if the service
-is unreachable the app automatically switches to the on-device engine and clearly labels the
-result as *"On-device fallback"*, so the screen never dead-ends.
+1. **Complete FastAPI Production Backend (`backend/`)**:
+   - `backend/config.py`: Centralized environment configuration and security settings.
+   - `backend/database.py`: Async SQLAlchemy 2.0 engine with PostgreSQL/PostGIS support and transparent local SQLite fallback.
+   - `backend/models.py`: 18 normalized relational models (Users, UserSessions, Farms, Herds, Animals, DiseaseReports, VeterinaryCases, VeterinaryVisits, Laboratories, LabSamples, LabTests, VaccinationCampaigns, VaccinationRecords, OutbreakEvents, Alerts, Notifications, AuditLogs, ExternalDataRecords, SyncEvents).
+   - `backend/schemas.py`: Comprehensive Pydantic v2 validation models.
+   - `backend/security.py`: Direct bcrypt hashing (no passlib wrap bugs), JWT access & refresh tokens, strict role-based authorization dependencies (`require_roles`).
+   - `backend/init_db.py`: Complete database seeder with realistic Maharashtra districts, veterinarians, diagnostic laboratories, dairy farms, and registered herds.
+   - `migrations/001_initial_schema.sql`: Production PostgreSQL + PostGIS DDL schema with spatial geometry columns and performance indexes.
 
-```bash
-python3 -m venv .venv && source .venv/bin/activate
-pip install -r ml-backend/requirements.txt
+2. **Real-Time Multi-User Synchronization & WebSockets**:
+   - `backend/services/websocket_manager.py`: Topic-based and user-directed WebSocket connection manager (`/api/v1/ws`).
+   - Real-time broadcasts for `REPORT_CREATED`, `CASE_CREATED`, `CASE_STATUS_CHANGED`, `LAB_SAMPLE_COLLECTED`, `LAB_RESULT_VERIFIED`, and `SYNC_COMPLETED`.
+   - Visual WebSocket connection state banner on frontend (`CONNECTED`, `RECONNECTING`, `OFFLINE`, `SYNCING`).
 
-# retrain the demo models (writes ml-backend/models/*.pkl)
-python ml-backend/train_model.py
+3. **Safe Clinical Triage & Automated Dispatch Engine**:
+   - `backend/services/triage_service.py`: Evaluates species, symptoms, mortality, body temperature, and clinical red flags without claiming certainty of diagnosis.
+   - Provides risk levels (`LOW`, `MODERATE`, `HIGH`, `CRITICAL`), urgency ratings (`ROUTINE`, `URGENT`, `EMERGENCY`), biosecurity protocols, and disclaimers.
+   - `backend/services/dispatch_service.py`: Calculates Haversine distances between farmers and registered veterinarians in the district, automatically creating and routing cases to eligible veterinarians.
 
-# run the API on http://127.0.0.1:8000
-uvicorn main:app --app-dir ml-backend --host 0.0.0.0 --port 8000
-```
+4. **Laboratory Sample Lifecycle & Verification**:
+   - Full 9-stage lifecycle: `COLLECTED` -> `IN_TRANSIT` -> `RECEIVED` -> `ACCEPTED` -> `TESTING` -> `RESULT_PENDING` -> `VERIFIED` -> `RELEASED` -> `CLOSED`.
+   - Sample QR generation, test entry (RT-PCR, ELISA, Serology), and formal verification with audit logging.
 
-Endpoints: `POST /api/predict`, `POST /api/outbreak-detection`, `POST /api/forecast`,
-`POST /api/cluster`, `GET /api/model-performance`.
+5. **Voice-First Farmer Experience**:
+   - `components/PersistentVoiceAssistant.tsx`: Large persistent floating voice button (🎙️).
+   - Multi-turn conversational state machine with Web Speech STT and Text-To-Speech audio feedback.
+   - Extracts intent (`REPORT_DISEASE`, `REQUEST_VETERINARIAN`, `VIEW_ANIMALS`, `CHECK_VACCINATION`, `CHECK_LAB_RESULT`, `SYNC_DATA`, `GET_DISEASE_INFORMATION`).
+   - Protects write actions with user voice/click confirmation.
 
-During `npm run dev`, requests to `/api/*` are proxied to `ML_BACKEND_URL`
-(default `http://127.0.0.1:8000`), so no CORS setup is needed locally.
+6. **Complete 8-Language Localization Dictionaries**:
+   - Complete identical keys for:
+     1. `en` (English)
+     2. `mr` (Marathi)
+     3. `hi` (Hindi)
+     4. `te` (Telugu)
+     5. `kn` (Kannada)
+     6. `gu` (Gujarati)
+     7. `ta` (Tamil)
+     8. `bn` (Bengali)
+   - `TranslationService` abstraction with Google Cloud Translation provider and verified veterinary terminology glossary fallback.
+
+7. **Production Maps with Google Maps + Leaflet Fallback**:
+   - `components/PashuMap.tsx`: Detects `VITE_GOOGLE_MAPS_API_KEY`. When configured, loads Google Maps JavaScript SDK with custom markers, clustering, and route navigation. Automatically degrades to Leaflet GIS when offline or key is unconfigured.
+
+8. **Notification Provider Architecture**:
+   - `backend/services/notification_service.py`: Multi-channel provider for SMS (Fast2SMS / Twilio / Mock adapter), WhatsApp Business Cloud API, and in-app alerts.
+
+9. **External Data Provider Layer**:
+   - `backend/services/external_data_service.py`: Official adapters for ICAR-NIVEDI NADRES monthly disease forewarning bulletins, DAHD 20th Livestock Census, and Open-Meteo weather parameters.
+
+10. **Offline-First Synchronization**:
+    - Idempotency key tracking in sync queue prevents duplicate records on reconnection.
+    - POST `/api/v1/sync/push` and GET `/api/v1/sync/pull` synchronize IndexedDB with primary SQL storage.
 
 ---
 
-## 3. Configuration
+## 2. Existing Features Preserved
 
-| Variable | Scope | Default | Meaning |
+- Preserved disease reference catalog (`services/DiseaseService.ts`).
+- Preserved 20th Livestock Census baseline populations (`services/ReferenceData.ts`).
+- Preserved offline IndexedDB storage architecture (`services/db/IndexedDBService.ts`).
+- Preserved Whisper WebAssembly worker integration for offline transcription (`workers/whisperWorker.ts`).
+- Preserved machine learning models (`ml-backend/models/rf_model.pkl`, `iso_model.pkl`, `scaler.pkl`, `metrics.json`).
+- Preserved PWA offline caching service worker configuration (`vite.config.ts`).
+- Preserved existing GIS GeoJSON layers (`public/maharashtra_locations.json`, `public/maharashtra_state.geojson`).
+
+---
+
+## 3. Dedicated Role Portals & Authentication Credentials
+
+Pashu-Shield provides **separate login and registration pages** tailored for each operational role. The **Government Official** functions as the administrative and surveillance authority overseeing the entire state situation.
+
+### Authentication Endpoints & Credentials Matrix
+
+| Operational Role | Dedicated Login Route | Dedicated Sign-up Route | Authorized Email / Phone | Password | Default User & Jurisdiction |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **🌾 Farmer / Livestock Keeper** | `/login/farmer` | `/signup/farmer` | `farmer@pashushield.gov.in`<br>(or `9823012345`) | `Farmer@123` | Ramesh Tukaram Patil<br>(Walwur, Shirur, Pune) |
+| **👨‍⚕️ Veterinary Officer** | `/login/veterinary` | `/signup/veterinary` | `vet@pashushield.gov.in`<br>(or `9823054321`) | `Vet@123` | Dr. Sunita Deshmukh<br>(MSVC-2018-04821, Shirur Polyclinic) |
+| **🧪 Diagnostic Laboratory** | `/login/laboratory` | `/signup/laboratory` | `lab@pashushield.gov.in`<br>(or `9823077777`) | `Lab@123` | Pooja Shinde (Senior Microbiologist)<br>(DIS Pune, NABL ISO/IEC 17025) |
+| **🏛️ Government Official (Admin)** | `/login/government`<br>(alias `/login/admin`) | `/signup/government`<br>(alias `/signup/admin`) | `state@pashushield.gov.in`<br>(or `admin@pashushield.gov.in`) | `Govt@123`<br>(or `Admin@123`) | Dr. V. K. Chavan<br>(State Surveillance Coordinator / Joint Director) |
+
+- **Unified Role Portals Hub**: Accessible at `/login` with 1-click demo logins and credentials inspection cards.
+- **Unified Sign-up Hub**: Accessible at `/signup` with dedicated forms for each role category.
+- **Top Bar & Sidebar Access**: Direct "Role Portals" button and User Profile menu allows switching roles or signing out at any point.
+
+---
+
+## 4. User Roles & RBAC Matrix
+
+| Role | Default Demo Account | Primary Capabilities | Restricted Capabilities |
 | --- | --- | --- | --- |
-| `VITE_API_BASE_URL` | build time | `/api` | Absolute or relative base URL of the FastAPI service |
-| `VITE_BASE_PATH` | build time | `/` | Sub-path the app is hosted under (e.g. `/Pashu-Shield/`) |
-| `ML_BACKEND_URL` | dev/preview only | `http://127.0.0.1:8000` | Proxy target for `/api` |
+| **FARMER** | `farmer@pashushield.gov.in` | Voice assistant, register cattle/herds, report sick animal, request vet, view vaccinations & lab results | No administrative controls, no state-wide surveillance oversight |
+| **VETERINARIAN** | `vet@pashushield.gov.in` | Assigned cases queue, emergency response, on-site visit recording, clinical diagnosis, order lab samples | Cannot approve lab verification or change state policy |
+| **LAB_TECHNICIAN** | `lab@pashushield.gov.in` | Receive samples, QR scan, execute RT-PCR/ELISA tests, record values, verify results for surveillance release | Cannot perform field veterinary triage |
+| **DISTRICT_OFFICER** | `district@pashushield.gov.in` | District risk monitoring, outbreak containment tracking, veterinary workload oversight | Limited to district jurisdiction |
+| **STATE_OFFICER (ADMIN)** | `state@pashushield.gov.in` | Full Maharashtra surveillance, NADRES comparison, vaccination campaign management, GIS hotspot quarantine | State surveillance & administrative authority |
+| **SYSTEM_ADMIN** | `admin@pashushield.gov.in` | User account approvals, role permissions, audit log investigation, system configuration | Unrestricted system-wide authority |
 
-Copy `.env.example` to `.env.local` to override locally. In production, a reverse proxy that
-forwards `/api/*` to the FastAPI service keeps the frontend on a single origin
-(recommended — no CORS, no mixed content).
+---
 
-```nginx
-# nginx: SPA + ML service behind one origin
-location /api/ { proxy_pass http://127.0.0.1:8000/api/; }
-location / {
-  root /var/www/pashu-shield;
-  try_files $uri $uri/ /index.html;   # client-side routing
-}
+## 4. Critical End-to-End Workflow
+
+```
+FARMER
+  │  (Speaks: "My cow has fever and blisters")
+  ▼
+VOICE ASSISTANT (NLP Intent Extraction)
+  │  (Entities: Cattle, Fever, Blisters → Triage Urgency: EMERGENCY)
+  ▼
+CLINICAL TRIAGE ENGINE
+  │  (Evaluates clinical red flags, assigns HIGH/CRITICAL risk)
+  ▼
+DATABASE RECORD CREATED (Report #MH-PUN-260901-A101)
+  │  (Triggers real-time event & alerts)
+  ▼
+VETERINARY DISPATCH ENGINE
+  │  (Calculates proximity, selects Dr. Sunita Deshmukh)
+  ▼
+REAL-TIME WEBSOCKET BROADCAST
+  │  (Notifies Veterinarian & updates Government Surveillance)
+  ▼
+VETERINARIAN ACCEPTS CASE
+  │  (Status: ASSIGNED → EN_ROUTE → ON_SITE)
+  ▼
+DIAGNOSTIC SAMPLE ORDERED
+  │  (Sample #SMP-PUN-2609-10231 registered with QR)
+  ▼
+LABORATORY TESTING & VERIFICATION
+  │  (RT-PCR confirmed → Lab Officer signs off)
+  ▼
+NOTIFICATIONS DISPATCHED
+  │  (Farmer notified via SMS/WhatsApp; Government outbreak status updated)
 ```
 
 ---
 
-## 4. Deployment
+## 5. Local Setup & Running Instructions
 
-The app is a static SPA. Build it and serve `dist/`.
+### Prerequisites
+- Node.js ≥ 20.19 and npm
+- Python ≥ 3.11 with pip
 
-| Platform | Setup |
-| --- | --- |
-| **Vercel** | Auto-detected via `vercel.json` (build `npm run build`, output `dist`, SPA rewrite, asset caching) |
-| **Netlify** | Auto-detected via `netlify.toml`; `public/_redirects` covers static uploads |
-| **GitHub Pages** | `VITE_BASE_PATH=/<repo>/ npm run build`, then publish `dist/` (also copy `dist/index.html` to `dist/404.html` for deep links) |
-| **Static server / CDN** | Serve `dist/` and rewrite unknown paths to `index.html`; keep `sw.js` and `manifest.webmanifest` revalidation-friendly |
+### Quick Start (Dev Environment)
 
-Two build facts matter for hosting:
-
-1. **Deep links** (`/gis`, `/analytics`, …) must fall back to `index.html`, otherwise a refresh returns 404.
-2. `dist/` is ~85 MB because the offline ML assets ship with it (`public/models/` 44 MB Whisper ONNX,
-   `public/wasm/` 37 MB onnxruntime WASM). The service worker caches them on first use and does not
-   precache files above 10 MB, so they never block first paint. Omit `public/models`/`public/wasm` from a
-   build if offline voice transcription is not required.
-
----
-
-## 5. Offline behaviour
-
-* **Storage** — IndexedDB (`services/db/IndexedDBService.ts`), with automatic in-memory fallback when
-  IndexedDB is unavailable (private browsing, blocked storage, quota errors).
-* **Case reports** — drafts and the offline queue are kept in `localStorage`, validated on read, and
-  flushed automatically when the browser comes back online.
-* **AI** — risk scoring falls back to the bundled model; the AI screen labels the source of every result.
-* **Assets** — the service worker precaches the app shell and caches ML models, district data and map
-  tiles at runtime for later offline use.
-
-If `localStorage`/IndexedDB were cleared or corrupted, the app self-heals: unreadable queues and drafts
-are discarded instead of breaking the screen.
-
----
-
-## 6. Project layout
-
-```
-App.tsx                  routes (each screen wrapped in an error boundary)
-components/              Layout, Sidebar, Topbar, ErrorBoundary
-context/                 app-wide state (reports, alerts, animals, labs, vaccination, i18n)
-locales/                 English + Marathi UI strings
-pages/                   one folder per feature screen
-services/                API clients, ML fallback engine, offline storage, helpers
-workers/whisperWorker.ts offline speech-to-text worker
-public/                  PWA icons, bundled ML models + WASM, GIS reference data
-ml-backend/              FastAPI service, training script and model artefacts
-scripts/smoke.mjs        headless route/interaction smoke test
+1. **Install Frontend Dependencies**:
+```bash
+npm install --ignore-scripts
 ```
 
+2. **Install Backend Dependencies**:
+```bash
+pip install fastapi uvicorn pydantic scikit-learn pandas numpy joblib sqlalchemy aiosqlite python-jose[cryptography] bcrypt websockets httpx python-multipart email-validator
+```
+
+3. **Start the FastAPI Backend Service (Port 8000)**:
+```bash
+python3 -m uvicorn backend.main:app --host 0.0.0.0 --port 8000
+```
+
+4. **Start the Vite Frontend (Port 5173)**:
+```bash
+npm run dev -- --host 0.0.0.0
+```
+
+Access the application in your browser at `http://localhost:5173`.
+
 ---
 
-## 7. Testing
+## 6. Docker Deployment
+
+Deploy the full stack (PostgreSQL + PostGIS, Redis, FastAPI Backend, Background Worker, and Nginx Frontend) with one command:
 
 ```bash
-npm run typecheck   # TypeScript project references, strict mode
-npm run lint        # oxlint — 0 warnings/errors expected
-npm run smoke       # renders every route in jsdom + exercises the offline AI and report flows
+docker-compose up --build -d
 ```
 
-The smoke test fails the build if any route throws, if the AI screen cannot produce a
-prediction without a backend, or if a submitted case report does not appear under *My Reports*.
+### Checking Services
+```bash
+docker-compose ps
+docker-compose logs -f backend
+```
 
 ---
 
-## 8. Reference data (published datasets)
+## 7. Running Tests
 
-The app's reference data comes from published government sources, consolidated in
-`services/ReferenceData.ts` (and `public/maharashtra_locations.json` for map locations):
+### Backend Automated Test Suite
+```bash
+PYTHONPATH=. pytest tests/test_backend.py -v
+```
 
-| Dataset | Source |
-| --- | --- |
-| Species populations (India + Maharashtra) | 20th Livestock Census 2019, DAHD, Govt. of India |
-| Districts (all 36, HQ coordinates, divisions) | Revenue & Forest Department, Govt. of Maharashtra |
-| Indigenous breeds (Gir, Dangi, Deoni, Khillari, Pandharpuri, Osmanabadi, …) | ICAR-NBAGR National Register of Indigenous Livestock Breeds |
-| Disease catalog (FMD, LSD, PPR, Brucellosis, HS, BQ, Anthrax, Rabies, …) | DAHD "Livestock Health & Disease Control" reports; WOAH listed-disease framework |
-| Vaccination schedule & campaign targets | NADCP (six-monthly FMD dosing; one-time Brucellosis dose for 4–8-month female bovine calves; PPR eradication by 2030) |
+### Frontend TypeScript Verification & Smoke Suite
+```bash
+npm run typecheck
+npm run smoke
+```
 
-Outbreak *counts* on the Analytics screen are still simulated (no official case-level time
-series is published), but their denominators, district list and vaccination targets are
-derived from the datasets above. Sample records (seeded animals/cases/samples) are labelled
-as such in code until a live backend is connected.
+---
+
+## 8. External API Credentials & Legal Requirements
+
+The following integrations use standard provider abstractions. In sandbox and development modes, high-fidelity mock adapters provide realistic behaviors. Live institutional connections require official credentials:
+
+1. **ICAR-NIVEDI NADRES**:
+   - Requires institutional memorandum of understanding (MoU) with ICAR-NIVEDI for live API endpoints.
+   - Configured via `NADRES_API_KEY` and `NADRES_API_URL`.
+   - Development mode serves published monthly bulletin baselines clearly marked as `HISTORICAL / PUBLISHED BASELINE`.
+
+2. **DAHD Livestock Census & Surveillance**:
+   - Official national reporting systems require Department of Animal Husbandry & Dairying authorization.
+   - Configured via `GOVERNMENT_API_KEY` and `GOVERNMENT_API_URL`.
+
+3. **Google Maps API**:
+   - Requires Google Cloud console account with Maps JavaScript API enabled.
+   - Configured via `VITE_GOOGLE_MAPS_API_KEY`.
+   - When unset, Pashu-Shield automatically falls back to the embedded Leaflet GIS map.
+
+4. **SMS & WhatsApp Business Cloud API**:
+   - SMS requires DLT registration (Govt. of India) and a provider API key (`SMS_API_KEY`).
+   - WhatsApp requires Meta Business Manager verification (`WHATSAPP_ACCESS_TOKEN` and `WHATSAPP_PHONE_NUMBER_ID`).

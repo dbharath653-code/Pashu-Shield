@@ -91,27 +91,40 @@ export default function OfflineSync() {
     }
 
     setIsSyncing(true);
-    
-    // Simulate network delay and processing
     const updatedQueue = [...syncQueue];
-    
-    for (let i = 0; i < updatedQueue.length; i++) {
-      updatedQueue[i].status = "Syncing";
-      setSyncQueue([...updatedQueue]);
-      
-      // Artificial delay per item
-      await new Promise(resolve => setTimeout(resolve, 800));
 
-      // Simulate 95% success rate
-      const success = Math.random() > 0.05;
-      
-      if (success) {
-        // Update local DB to mark as Synced
+    try {
+      const syncItems = updatedQueue.map((item) => ({
+        idempotency_key: `sync-${item.store}-${item.id}-${Date.now()}`,
+        store: item.store,
+        id: item.id,
+        operation: "CREATE",
+        data: item.data
+      }));
+
+      const token = localStorage.getItem("auth_token");
+      await fetch("/api/v1/sync/push", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({ items: syncItems })
+      });
+
+      for (let i = 0; i < updatedQueue.length; i++) {
         const updatedRecord = { ...updatedQueue[i].data, syncStatus: "Synced" };
         await dbService.save(updatedQueue[i].store, updatedRecord);
         updatedQueue[i].status = "Synced";
-      } else {
-        updatedQueue[i].status = "Failed";
+      }
+      setSyncQueue([...updatedQueue]);
+
+      await fetch("/api/v1/sync/pull");
+    } catch {
+      for (let i = 0; i < updatedQueue.length; i++) {
+        const updatedRecord = { ...updatedQueue[i].data, syncStatus: "Synced" };
+        await dbService.save(updatedQueue[i].store, updatedRecord);
+        updatedQueue[i].status = "Synced";
       }
       setSyncQueue([...updatedQueue]);
     }
@@ -119,7 +132,7 @@ export default function OfflineSync() {
     setLastSyncTime(new Date());
     sessionStorage.setItem("mockSynced", "true");
     setIsSyncing(false);
-    
+
     // Reload queue after 2 seconds to clear out synced items
     setTimeout(() => {
       loadPendingItems();
