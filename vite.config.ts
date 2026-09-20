@@ -135,6 +135,12 @@ export default defineConfig({
       "/api": {
         target: ML_BACKEND,
         changeOrigin: true,
+        ws: true,
+      },
+      "/ws": {
+        target: ML_BACKEND,
+        changeOrigin: true,
+        ws: true,
       },
     },
   },

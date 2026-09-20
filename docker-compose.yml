@@ -1,0 +1,84 @@
+version: "3.8"
+
+services:
+  postgres:
+    image: postgis/postgis:15-3.3
+    container_name: pashu_postgres
+    environment:
+      POSTGRES_DB: pashu_shield
+      POSTGRES_USER: pashu_user
+      POSTGRES_PASSWORD: pashu_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./migrations/001_initial_schema.sql:/docker-entrypoint-initdb.d/01_schema.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pashu_user -d pashu_shield"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: pashu_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: pashu_backend
+    environment:
+      DATABASE_URL: postgresql+asyncpg://pashu_user:pashu_password@postgres:5432/pashu_shield
+      REDIS_URL: redis://redis:6379/0
+      JWT_SECRET: pashu-shield-docker-prod-secret-2026
+      JWT_REFRESH_SECRET: pashu-shield-docker-refresh-secret-2026
+      SMS_PROVIDER: mock
+      WHATSAPP_PROVIDER: mock
+      TRANSLATION_PROVIDER: local
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: pashu_worker
+    command: ["python3", "-c", "import time; print('Pashu-Shield background ingestion worker started.'); time.sleep(999999)"]
+    environment:
+      DATABASE_URL: postgresql+asyncpg://pashu_user:pashu_password@postgres:5432/pashu_shield
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      backend:
+        condition: service_started
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: pashu_frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:

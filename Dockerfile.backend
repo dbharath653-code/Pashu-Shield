@@ -1,0 +1,29 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install python requirements
+COPY ml-backend/requirements.txt /tmp/ml-reqs.txt
+RUN pip install --no-cache-dir -r /tmp/ml-reqs.txt \
+    sqlalchemy aiosqlite python-jose[cryptography] bcrypt websockets httpx python-multipart alembic asyncpg email-validator
+
+# Copy backend source & ML models
+COPY backend /app/backend
+COPY ml-backend /app/ml-backend
+COPY migrations /app/migrations
+
+ENV PYTHONPATH=/app
+ENV PORT=8000
+
+EXPOSE 8000
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
+  CMD curl -f http://localhost:8000/health || exit 1
+
+CMD ["python3", "-m", "uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"]

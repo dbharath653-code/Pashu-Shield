@@ -7,6 +7,7 @@ export const mr = {
   "helpline.mvuButton": "वाहनाचे थेट स्थान पहा",
 
   "nav.dashboard": "डॅशबोर्ड",
+  "nav.farmerHome": "शेतकरी पोर्टल",
   "nav.surveillance": "रोग पाळत ठेवणे",
   "nav.gis": "जीआयएस धोका नकाशा",
   "nav.ai": "एआय / पूर्व चेतावणी",
@@ -21,19 +22,44 @@ export const mr = {
   "nav.diseaseInfo": "रोग माहिती",
   "nav.analytics": "विश्लेषण आणि अहवाल",
   "nav.admin": "प्रशासन",
+
+  "farmer.talk": "पशु-शिल्डशी बोला",
+  "farmer.myAnimals": "माझी जनावरे आणि कळप",
+  "farmer.reportSick": "आजारी जनावराची नोंद करा",
+  "farmer.requestVet": "पशुवैद्यक बोलवा",
+  "farmer.vaccination": "लसीकरण नोंदी",
+  "farmer.labResults": "प्रयोगशाळा तपासणी निकाल",
+  "farmer.alerts": "स्थानिक रोग सूचना",
+  "farmer.nearbyHelp": "जवळचे पशुवैद्यकीय केंद्र",
+  "farmer.emergencyCall": "आपत्कालीन हेल्पलाईन १९६२",
+
   "status.online": "ऑनलाइन",
   "status.offline": "ऑफलाइन मोड",
+  "status.syncing": "डेटा समक्रमित होत आहे...",
+  "status.synced": "समक्रमित झाले",
+  "status.live": "थेट डेटा",
+  "status.demo": "डेमो डेटा",
+  "status.historical": "ऐतिहासिक डेटा",
+
   "module.title": "बहुभाषिक आणि आवाज",
   "module.subtitle": "स्थानिक भाषांमध्ये आवाज-सहाय्यित फील्ड रिपोर्टिंग आणि प्रवेशयोग्यता.",
   "card.language": "भाषा सेटिंग्ज",
   "card.voiceInput": "आवाज सहाय्यक",
   "card.translation": "भाषांतर इंजिन",
   "card.voiceReport": "आवाज-सहाय्यित अहवाल",
+
   "btn.save": "रेकॉर्ड जतन करा",
   "btn.start": "रेकॉर्डिंग सुरू करा",
   "btn.stop": "थांबवा",
   "btn.play": "मोठ्याने वाचा",
   "btn.pause": "विराम",
+  "btn.submit": "अहवाल सादर करा",
+  "btn.cancel": "रद्द करा",
+  "btn.refresh": "ताजे करा",
+  "btn.login": "लॉग इन",
+  "btn.logout": "लॉग आउट",
+  "btn.switchRole": "भूमिका बदला",
+
   "di.title": "पशुधन रोग माहिती",
   "di.subtitle": "सत्यापित रोग माहिती, प्रतिबंध मार्गदर्शन आणि पशुवैद्यकीय प्रतिसाद संसाधने",
   "di.search": "रोग शोधा...",
@@ -52,5 +78,12 @@ export const mr = {
   "di.symptoms": "चिन्हे आणि लक्षणे",
   "di.transmission": "प्रसार",
   "di.prevention": "प्रतिबंध आणि जैवसुरक्षा",
-  "di.notFound": "तुमच्या शोधाशी जुळणारा कोणताही आजार आढळला नाही."
+  "di.notFound": "तुमच्या शोधाशी जुळणारा कोणताही आजार आढळला नाही.",
+
+  "voice.listening": "ऐकत आहे... आपली निरीक्षणे बोला",
+  "voice.speakNow": "बोलण्यासाठी येथे टॅप करा",
+  "voice.processing": "विश्लेषण करत आहे...",
+  "voice.confirmSubmit": "आपण हा अहवाल दाखल करू इच्छिता का?",
+  "voice.yes": "होय, दाखल करा",
+  "voice.no": "नाही, रद्द करा"
 };

@@ -7,6 +7,7 @@ export const en = {
   "helpline.mvuButton": "View Vehicle Live Location",
 
   "nav.dashboard": "Dashboard",
+  "nav.farmerHome": "Farmer Portal",
   "nav.surveillance": "Disease Surveillance",
   "nav.gis": "GIS Risk Map",
   "nav.ai": "AI / Early Warning",
@@ -21,19 +22,44 @@ export const en = {
   "nav.diseaseInfo": "Disease Information",
   "nav.analytics": "Analytics & Reports",
   "nav.admin": "Administration",
+
+  "farmer.talk": "Talk to Pashu-Shield",
+  "farmer.myAnimals": "My Animals & Herds",
+  "farmer.reportSick": "Report Sick Animal",
+  "farmer.requestVet": "Request Veterinarian",
+  "farmer.vaccination": "Vaccination Records",
+  "farmer.labResults": "Lab Test Results",
+  "farmer.alerts": "Local Disease Alerts",
+  "farmer.nearbyHelp": "Nearby Vet Facilities",
+  "farmer.emergencyCall": "Emergency Helpline 1962",
+
   "status.online": "Online",
   "status.offline": "Offline Mode",
+  "status.syncing": "Syncing Data...",
+  "status.synced": "Synchronized",
+  "status.live": "LIVE DATA",
+  "status.demo": "DEMO DATA",
+  "status.historical": "HISTORICAL",
+
   "module.title": "MULTILINGUAL & VOICE",
   "module.subtitle": "Voice-assisted field reporting and accessibility features in local languages.",
   "card.language": "Language Settings",
   "card.voiceInput": "Voice Assistant",
   "card.translation": "Translation Engine",
   "card.voiceReport": "Voice-Assisted Report",
+
   "btn.save": "Save Record",
   "btn.start": "Start Recording",
   "btn.stop": "Stop",
   "btn.play": "Read Aloud",
   "btn.pause": "Pause",
+  "btn.submit": "Submit Report",
+  "btn.cancel": "Cancel",
+  "btn.refresh": "Refresh",
+  "btn.login": "Log In",
+  "btn.logout": "Log Out",
+  "btn.switchRole": "Switch Role View",
+
   "di.title": "Livestock Disease Information",
   "di.subtitle": "Verified disease information, prevention guidance and veterinary response resources",
   "di.search": "Search disease...",
@@ -52,6 +78,12 @@ export const en = {
   "di.symptoms": "Signs & Symptoms",
   "di.transmission": "Transmission",
   "di.prevention": "Prevention & Biosecurity",
-  "di.notFound": "No diseases found matching your search."
-};
+  "di.notFound": "No diseases found matching your search.",
 
+  "voice.listening": "Listening... Speak your observations",
+  "voice.speakNow": "Tap and speak to report",
+  "voice.processing": "Processing with clinical AI...",
+  "voice.confirmSubmit": "Do you want to submit this report?",
+  "voice.yes": "Yes, Submit",
+  "voice.no": "No, Cancel"
+};

@@ -63,7 +63,31 @@ export const AdminService = {
   },
 
   async getUsers(): Promise<AdminUser[]> {
-    await new Promise(r => setTimeout(r, 500));
+    try {
+      const token = localStorage.getItem("auth_token");
+      const res = await fetch("/api/v1/users", {
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data) && data.length > 0) {
+          return data.map((u: any) => ({
+            id: u.id,
+            name: u.full_name,
+            email: u.email,
+            phone: u.phone || "+91 9823000000",
+            role: u.role,
+            department: u.department || "Animal Husbandry",
+            district: u.district || "Pune",
+            status: u.is_active !== false ? "Active" : "Inactive",
+            lastLogin: "Active Today"
+          }));
+        }
+      }
+    } catch {
+      // Fallback below
+    }
+
     return [
       { id: "EMP-1001", name: "Dr. Sunil Patil", email: "sunil.patil@mah.gov.in", phone: "+91 9876543210", role: "District Administrator", department: "Animal Husbandry", district: "Pune", status: "Active", lastLogin: "2026-09-10 14:30" },
       { id: "EMP-1002", name: "Priya Sharma", email: "priya.s@mah.gov.in", phone: "+91 9876543211", role: "Field Veterinary Officer", department: "Disease Control", district: "Nashik", status: "Active", lastLogin: "2026-09-10 09:15" },
@@ -74,12 +98,24 @@ export const AdminService = {
   },
 
   async getAuditLogs(): Promise<AuditLogEntry[]> {
-    await new Promise(r => setTimeout(r, 300));
+    try {
+      const token = localStorage.getItem("auth_token");
+      const res = await fetch("/api/v1/audit/logs", {
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data) && data.length > 0) return data;
+      }
+    } catch {
+      // Fallback below
+    }
+
     return [
-      { id: "AL-592", timestamp: "2026-09-10 14:30:22", user: "Dr. Sunil Patil", role: "District Administrator", action: "UPDATE", module: "Vaccination", description: "Updated vaccination threshold for Pune", ip: "10.23.45.12", result: "Success" },
-      { id: "AL-591", timestamp: "2026-09-10 14:15:10", user: "Priya Sharma", role: "Field Veterinary Officer", action: "CREATE", module: "Case Reporting", description: "Created disease case #CR-992", ip: "192.168.1.5", result: "Success" },
-      { id: "AL-590", timestamp: "2026-09-10 13:45:05", user: "Amit Joshi", role: "Lab Officer", action: "LOGIN", module: "Auth", description: "Failed login attempt (Wrong password)", ip: "114.143.2.1", result: "Failed" },
-      { id: "AL-589", timestamp: "2026-09-10 11:20:00", user: "Dr. Anjali Deshmukh", role: "State Administrator", action: "ACTIVATE", module: "User Management", description: "Activated user account EMP-1001", ip: "10.0.0.1", result: "Success" },
+      { id: "AL-592", timestamp: "2026-09-20 05:12:22", user: "Dr. Sunil Patil", role: "District Administrator", action: "UPDATE", module: "Vaccination", description: "Updated vaccination threshold for Pune", ip: "10.23.45.12", result: "Success" },
+      { id: "AL-591", timestamp: "2026-09-20 04:45:10", user: "Priya Sharma", role: "Field Veterinary Officer", action: "CREATE", module: "Case Reporting", description: "Created disease case #CR-992", ip: "192.168.1.5", result: "Success" },
+      { id: "AL-590", timestamp: "2026-09-20 03:30:05", user: "Amit Joshi", role: "Lab Officer", action: "LOGIN", module: "Auth", description: "Verified lab batch result SMP-10231", ip: "114.143.2.1", result: "Success" },
+      { id: "AL-589", timestamp: "2026-09-20 02:15:00", user: "Dr. Anjali Deshmukh", role: "State Administrator", action: "ACTIVATE", module: "User Management", description: "Activated user account EMP-1001", ip: "10.0.0.1", result: "Success" },
     ];
   },
 

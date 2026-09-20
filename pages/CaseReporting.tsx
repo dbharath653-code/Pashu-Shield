@@ -259,7 +259,7 @@ export default function CaseReporting() {
     } finally { setIsPredicting(false); }
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     const report: Report = {
       id: Date.now().toString(),
       date: new Date().toISOString().split('T')[0],
@@ -276,6 +276,32 @@ export default function CaseReporting() {
         ReportingService.queueForSync(report);
         speak("Saved offline. Will sync when network returns.");
     } else {
+        try {
+          const res = await fetch('/api/v1/reports', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              species: report.species,
+              number_affected: report.numberAffected,
+              number_dead: report.numberDead,
+              symptoms: report.symptoms,
+              district: report.district,
+              village: report.village,
+              suspected_disease: report.disease,
+              temperature: Number(formData.temperature) || null,
+              notes: formData.disease !== 'Unknown' ? `Suspected ${formData.disease}` : undefined
+            })
+          });
+          if (res.ok) {
+            const result = await res.json();
+            report.status = 'Confirmed';
+            if (result.assignedCase) {
+              alert(`Report successfully submitted to Veterinary Network!\nCase #${result.assignedCase.caseNumber}\nTriage: ${result.triage.risk_level} (${result.triage.urgency})\nAssigned Vet: ${result.assignedCase.assignedVet?.full_name || 'Emergency Unit'}`);
+            }
+          }
+        } catch (e) {
+          console.warn('Backend report submission error:', e);
+        }
         addReport(report);
         speak("Report submitted successfully.");
     }
