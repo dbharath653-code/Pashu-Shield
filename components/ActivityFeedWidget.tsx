@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { 
-  BellRing, RefreshCw, AlertTriangle, 
+import {
+  BellRing, RefreshCw, AlertTriangle,
   Activity, ArrowRight, Filter
 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useSync, type ActivityEvent } from "../services/SyncService";
 
 // Human-readable relative timestamp helper
@@ -29,12 +29,12 @@ export function formatRelativeTime(isoString: string): string {
   }
 }
 
-export default function ActivityFeedWidget({ 
-  maxItems = 8, 
+export default function ActivityFeedWidget({
+  maxItems = 8,
   showHeader = true,
-  className = "" 
-}: { 
-  maxItems?: number; 
+  className = ""
+}: {
+  maxItems?: number;
   showHeader?: boolean;
   className?: string;
 }) {
@@ -60,36 +60,37 @@ export default function ActivityFeedWidget({
 
   const displayList = filteredEvents.slice(0, maxItems);
 
+  // Severity badges use only shared-system text colors with ≥4.5:1 contrast.
   const getSeverityBadge = (severity: ActivityEvent["severity"]) => {
     switch (severity) {
       case "critical":
         return {
-          badgeClass: "bg-red-100 text-red-800 border-red-200",
+          badgeClass: "bg-red-700 text-white border-red-700",
           dotClass: "bg-red-500",
           label: "CRITICAL"
         };
       case "high":
         return {
-          badgeClass: "bg-orange-100 text-orange-800 border-orange-200",
+          badgeClass: "bg-amber-100 text-amber-900 border-amber-200",
           dotClass: "bg-orange-500",
           label: "HIGH"
         };
       case "warning":
         return {
-          badgeClass: "bg-amber-100 text-amber-800 border-amber-200",
+          badgeClass: "bg-amber-100 text-amber-900 border-amber-200",
           dotClass: "bg-amber-500",
           label: "WARNING"
         };
       case "success":
         return {
-          badgeClass: "bg-emerald-100 text-emerald-800 border-emerald-200",
+          badgeClass: "bg-emerald-700 text-white border-emerald-700",
           dotClass: "bg-emerald-500",
           label: "SUCCESS"
         };
       case "info":
       default:
         return {
-          badgeClass: "bg-blue-100 text-blue-800 border-blue-200",
+          badgeClass: "bg-blue-700 text-white border-blue-700",
           dotClass: "bg-blue-500",
           label: "INFO"
         };
@@ -129,7 +130,7 @@ export default function ActivityFeedWidget({
       {showHeader && (
         <div className="p-4 border-b border-gray-100 flex flex-wrap items-center justify-between gap-2 bg-gray-50/50">
           <div className="flex items-center gap-2">
-            <div className="p-1.5 rounded-lg bg-blue-100 text-brandBlue">
+            <div className="p-1.5 rounded-lg bg-blue-100 text-blue-700">
               <BellRing size={18} />
             </div>
             <div>
@@ -137,12 +138,12 @@ export default function ActivityFeedWidget({
                 <span>Real-Time Activity & Alert Feed</span>
                 {/* Live / Updating / Offline pill */}
                 <span
-                  className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider flex items-center gap-1 border ${
+                  className={`px-2 py-0.5 rounded-full text-xs font-black uppercase tracking-wider flex items-center gap-1 border ${
                     feedStatus === "LIVE"
                       ? "bg-emerald-50 text-emerald-700 border-emerald-200"
                       : feedStatus === "UPDATING"
                       ? "bg-amber-50 text-amber-700 border-amber-200"
-                      : "bg-gray-100 text-gray-600 border-gray-200"
+                      : "bg-gray-100 text-gray-500 border-gray-200"
                   }`}
                 >
                   <span
@@ -157,25 +158,23 @@ export default function ActivityFeedWidget({
                   <span>{feedStatus}</span>
                 </span>
               </h3>
-              <p className="text-[11px] text-gray-500">Live operational & early-warning updates</p>
+              <p className="text-xs text-gray-500">Live operational & early-warning updates</p>
             </div>
           </div>
 
           <div className="flex items-center gap-1.5">
             <button
               onClick={handleRefresh}
-              className="p-1.5 text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
+              className="btn btn-ghost min-h-[40px] min-w-[40px]"
               title="Refresh Activity"
+              aria-label="Refresh activity feed"
             >
               <RefreshCw size={14} className={isRefreshing ? "animate-spin" : ""} />
             </button>
-            <button
-              onClick={() => navigate("/alerts")}
-              className="text-xs font-semibold text-brandBlue hover:underline flex items-center gap-1 px-1 py-1"
-            >
+            <Link to="/alerts" className="link-action">
               <span>All Alerts</span>
               <ArrowRight size={13} />
-            </button>
+            </Link>
           </div>
         </div>
       )}
@@ -193,11 +192,8 @@ export default function ActivityFeedWidget({
           <button
             key={tab.id}
             onClick={() => setFilterType(tab.id)}
-            className={`px-2.5 py-1 rounded-lg font-medium whitespace-nowrap transition-colors text-xs ${
-              filterType === tab.id
-                ? "bg-blue-100 text-brandBlue font-bold"
-                : "text-gray-600 hover:bg-gray-100"
-            }`}
+            aria-pressed={filterType === tab.id}
+            className={`btn shrink-0 ${filterType === tab.id ? "btn-primary" : "btn-neutral"}`}
           >
             {tab.label}
           </button>
@@ -208,9 +204,9 @@ export default function ActivityFeedWidget({
       <div className="flex-1 overflow-y-auto divide-y divide-gray-100">
         {displayList.length === 0 ? (
           <div className="p-8 text-center text-gray-400">
-            <Activity size={32} className="mx-auto text-gray-300 mb-2" />
-            <p className="text-xs font-medium text-gray-600">No recent activity events.</p>
-            <p className="text-[11px] text-gray-400 mt-0.5">Events from reports, vet cases, and labs will stream here.</p>
+            <Activity size={32} className="mx-auto text-gray-400 mb-2" />
+            <p className="text-xs font-medium text-gray-700">No recent activity events.</p>
+            <p className="text-xs text-gray-400 mt-0.5">Events from reports, vet cases, and labs will stream here.</p>
           </div>
         ) : (
           displayList.map((event) => {
@@ -225,21 +221,22 @@ export default function ActivityFeedWidget({
                   <span className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${badge.dotClass}`} />
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-1.5">
-                      <p className="text-xs font-bold text-gray-900 group-hover:text-brandBlue transition-colors truncate">
+                      <p className="text-xs font-bold text-gray-900 group-hover:text-blue-700 transition-colors truncate">
                         {event.title}
                       </p>
-                      <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold border ${badge.badgeClass}`}>
+                      <span className={`px-1.5 py-0.5 rounded-lg text-xs font-bold border ${badge.badgeClass}`}>
                         {badge.label}
                       </span>
                     </div>
 
                     {event.description && (
-                      <p className="text-[11px] text-gray-600 mt-0.5 line-clamp-2 leading-relaxed">
+                      <p className="text-xs text-gray-500 mt-0.5 line-clamp-2 leading-relaxed">
                         {event.description}
                       </p>
                     )}
 
-                    <div className="flex items-center gap-2 mt-1.5 text-[10px] text-gray-400 font-medium">
+                    {/* Issue 8: meta row raised from 10px to the 12px minimum. */}
+                    <div className="flex items-center gap-2 mt-1.5 text-xs text-gray-400 font-medium">
                       {event.source && <span className="text-gray-500 font-semibold">{event.source}</span>}
                       {event.source && <span>•</span>}
                       {/* Responsive readable timestamp */}
@@ -251,7 +248,7 @@ export default function ActivityFeedWidget({
                 </div>
 
                 <div className="shrink-0 self-center opacity-0 group-hover:opacity-100 transition-opacity">
-                  <ArrowRight size={14} className="text-brandBlue" />
+                  <ArrowRight size={14} className="text-blue-700" />
                 </div>
               </div>
             );
@@ -259,13 +256,13 @@ export default function ActivityFeedWidget({
         )}
       </div>
 
-      {/* Footer info */}
-      <div className="p-2.5 bg-gray-50 border-t border-gray-100 flex items-center justify-between text-[11px] text-gray-500 px-4">
+      {/* Footer info — Issue 9: raised from 11px/10px to the 12px minimum. */}
+      <div className="p-2.5 bg-gray-50 border-t border-gray-100 flex items-center justify-between text-xs text-gray-500 px-4">
         <span className="flex items-center gap-1">
           <AlertTriangle size={12} className="text-gray-400" />
           <span>Real data from Maharashtra surveillance stream</span>
         </span>
-        <span className="font-mono text-[10px] text-gray-400">
+        <span className="font-mono text-xs text-gray-400">
           Showing {displayList.length} of {activityEvents.length}
         </span>
       </div>

@@ -60,6 +60,8 @@ export default function Layout() {
         <Topbar onOpenMobileMenu={() => setMobileMenuOpen(true)} />
         <main className="flex-1 overflow-y-auto overflow-x-hidden p-3 sm:p-4 lg:p-6 relative">
           <Outlet />
+          {/* Issue 15: clearance so the floating Voice Assistant never covers page content. */}
+          <div aria-hidden="true" className="h-16 shrink-0" />
         </main>
       </div>
 

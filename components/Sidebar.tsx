@@ -24,7 +24,7 @@ export default function Sidebar({ onClose, className = "", isMobile = false }: S
     if (role === "FARMER") {
       groups = [
         {
-          title: "FARMER SERVICES",
+          title: "Farmer Services",
           items: [
             { id: "farmer-home", label: t("nav.farmerHome"), icon: Home, path: "/" },
             { id: "reporting", label: t("nav.reporting"), icon: FileText, path: "/reporting" },
@@ -36,7 +36,7 @@ export default function Sidebar({ onClose, className = "", isMobile = false }: S
           ]
         },
         {
-          title: "KNOWLEDGE & TOOLS",
+          title: "Knowledge & Tools",
           items: [
             { id: "disease-info", label: t("di.title"), icon: Info, path: "/disease-info" },
             { id: "multilingual", label: t("nav.multilingual"), icon: Languages, path: "/multilingual" },
@@ -47,7 +47,7 @@ export default function Sidebar({ onClose, className = "", isMobile = false }: S
     } else if (role === "VETERINARIAN") {
       groups = [
         {
-          title: "CLINICAL RESPONSE",
+          title: "Clinical Response",
           items: [
             { id: "vet-response", label: t("nav.vetResponse"), icon: Stethoscope, path: "/vet-response" },
             { id: "reporting", label: t("nav.reporting"), icon: FileText, path: "/reporting" },
@@ -58,7 +58,7 @@ export default function Sidebar({ onClose, className = "", isMobile = false }: S
           ]
         },
         {
-          title: "EPIDEMIOLOGY",
+          title: "Epidemiology",
           items: [
             { id: "dashboard", label: t("nav.dashboard"), icon: LayoutDashboard, path: "/surveillance" },
             { id: "alerts", label: t("nav.alerts"), icon: BellRing, path: "/alerts" },
@@ -69,7 +69,7 @@ export default function Sidebar({ onClose, className = "", isMobile = false }: S
     } else if (role === "LAB_TECHNICIAN") {
       groups = [
         {
-          title: "LABORATORY OPERATIONS",
+          title: "Laboratory Operations",
           items: [
             { id: "lab", label: t("nav.lab"), icon: TestTube2, path: "/lab" },
             { id: "vet-response", label: t("nav.vetResponse"), icon: Stethoscope, path: "/vet-response" },
@@ -78,7 +78,7 @@ export default function Sidebar({ onClose, className = "", isMobile = false }: S
           ]
         },
         {
-          title: "SURVEILLANCE",
+          title: "Surveillance",
           items: [
             { id: "surveillance", label: t("nav.surveillance"), icon: Activity, path: "/surveillance" },
             { id: "offline", label: t("nav.offline"), icon: WifiOff, path: "/offline" }
@@ -89,7 +89,7 @@ export default function Sidebar({ onClose, className = "", isMobile = false }: S
       // Default: Government Official & System Admin (Full Oversight)
       groups = [
         {
-          title: "SURVEILLANCE & GIS",
+          title: "Surveillance & GIS",
           items: [
             { id: "dashboard", label: t("nav.dashboard"), icon: LayoutDashboard, path: "/" },
             { id: "surveillance", label: t("nav.surveillance"), icon: Activity, path: "/surveillance" },
@@ -99,7 +99,7 @@ export default function Sidebar({ onClose, className = "", isMobile = false }: S
           ]
         },
         {
-          title: "ANIMAL HEALTH & RESPONSE",
+          title: "Animal Health & Response",
           items: [
             { id: "animal-health", label: t("nav.animalHealth"), icon: HeartPulse, path: "/animal-health" },
             { id: "vet-response", label: t("nav.vetResponse"), icon: Stethoscope, path: "/vet-response" },
@@ -108,7 +108,7 @@ export default function Sidebar({ onClose, className = "", isMobile = false }: S
           ]
         },
         {
-          title: "INTELLIGENCE & ADMIN",
+          title: "Intelligence & Admin",
           items: [
             { id: "alerts", label: t("nav.alerts"), icon: BellRing, path: "/alerts" },
             { id: "analytics", label: t("nav.analytics"), icon: BarChart3, path: "/analytics" },
@@ -123,7 +123,7 @@ export default function Sidebar({ onClose, className = "", isMobile = false }: S
 
     // Append Portals & Authentication section for all roles
     groups.push({
-      title: "PORTALS & ACCESS",
+      title: "Portals & Access",
       items: [
         { id: "role-portals", label: "Separate Role Portals", icon: Key, path: "/login" },
         { id: "account-signup", label: "Register New Account", icon: UserPlus, path: "/signup" }
@@ -146,8 +146,8 @@ export default function Sidebar({ onClose, className = "", isMobile = false }: S
             <Shield size={20} className="text-white" />
           </div>
           <div className="overflow-hidden">
-            <h2 className="text-sm font-black tracking-tight text-white">Pashu-Shield</h2>
-            <p className="text-[11px] text-blue-300 font-medium truncate">
+            <p className="text-sm font-black tracking-tight text-white">Pashu-Shield</p>
+            <p className="text-xs text-gray-400 font-medium truncate">
               {role.replace("_", " ")}
             </p>
           </div>
@@ -170,7 +170,7 @@ export default function Sidebar({ onClose, className = "", isMobile = false }: S
         {navGroups.map((group, gIdx) => (
           <div key={gIdx} className="mb-4">
             <div className="px-5 mb-2">
-              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+              <span className="text-xs font-bold text-gray-400 tracking-wide">
                 {group.title}
               </span>
             </div>
@@ -189,7 +189,7 @@ export default function Sidebar({ onClose, className = "", isMobile = false }: S
                         `flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all duration-150 min-h-[40px] touch-manipulation ${
                           isActive
                             ? "bg-brandBlue text-white shadow-md font-bold"
-                            : "text-gray-300 hover:bg-white/10 hover:text-white"
+                            : "text-gray-400 hover:bg-white/10 hover:text-white"
                         }`
                       }
                     >
@@ -205,9 +205,9 @@ export default function Sidebar({ onClose, className = "", isMobile = false }: S
       </nav>
 
       {/* Bottom Emergency Help Box */}
-      <div className="p-3 bg-gray-900/60 border-t border-gray-800 text-[11px] text-gray-400 shrink-0">
-        <p className="font-bold text-gray-200">24x7 Help: 1962</p>
-        <p className="text-[10px] text-gray-400">Govt. of Maharashtra</p>
+      <div className="p-3 bg-gray-900/60 border-t border-gray-800 text-xs text-gray-400 shrink-0">
+        <p className="font-bold text-white">24x7 Help: 1962</p>
+        <p className="text-gray-400">Govt. of Maharashtra</p>
       </div>
     </div>
   );
