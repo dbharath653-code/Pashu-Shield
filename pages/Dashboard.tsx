@@ -35,19 +35,19 @@ export default function Dashboard() {
   }, []);
 
   const defaultStats = [
-    { label: "Active Reports", value: "14", icon: Activity, color: "bg-red-100 text-red-600", trend: "+4%" },
-    { label: "Active Vet Cases", value: "8", icon: Stethoscope, color: "bg-blue-100 text-blue-600", trend: "+2" },
-    { label: "Outbreak Clusters", value: "3", icon: AlertTriangle, color: "bg-orange-100 text-orange-600", trend: "+1" },
-    { label: "High-Risk Districts", value: "4", icon: MapPin, color: "bg-purple-100 text-purple-600", trend: "-1" },
-    { label: "Pending Lab Samples", value: "11", icon: TestTube2, color: "bg-indigo-100 text-indigo-600", trend: "-2" },
-    { label: "State Vaccination", value: "78.1%", icon: ShieldCheck, color: "bg-green-100 text-green-600", trend: "+2.4%" },
+    { label: "Active Reports", value: "14", icon: Activity, color: "bg-red-100 text-red-700", trend: "+4%" },
+    { label: "Active Vet Cases", value: "8", icon: Stethoscope, color: "bg-blue-100 text-blue-700", trend: "+2" },
+    { label: "Outbreak Clusters", value: "3", icon: AlertTriangle, color: "bg-amber-100 text-amber-700", trend: "+1" },
+    { label: "High-Risk Districts", value: "4", icon: MapPin, color: "bg-gray-100 text-gray-700", trend: "-1" },
+    { label: "Pending Lab Samples", value: "11", icon: TestTube2, color: "bg-blue-100 text-blue-700", trend: "-2" },
+    { label: "State Vaccination", value: "78.1%", icon: ShieldCheck, color: "bg-emerald-100 text-emerald-700", trend: "+2.4%" },
   ];
 
   const displayStats = kpiData.length > 0 ? kpiData.slice(0, 6).map((k, idx) => ({
     label: k.label,
     value: k.value.toString(),
     icon: defaultStats[idx]?.icon || Activity,
-    color: defaultStats[idx]?.color || "bg-blue-100 text-blue-600",
+    color: defaultStats[idx]?.color || "bg-blue-100 text-blue-700",
     trend: k.trend || "0%",
     provenance: k.provenance || "LIVE"
   })) : defaultStats;
@@ -63,11 +63,11 @@ export default function Dashboard() {
   ];
 
   const quickActions = [
-    { label: "Report Case", icon: Plus, path: "/reporting", color: "bg-red-50 text-red-700 border-red-200 hover:bg-red-100" },
-    { label: "Register Animal/Herd", icon: HeartPulse, path: "/animal-health", color: "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100" },
-    { label: "Collect Sample", icon: TestTube2, path: "/lab", color: "bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100" },
-    { label: "Record Vaccination", icon: Syringe, path: "/vaccination", color: "bg-green-50 text-green-700 border-green-200 hover:bg-green-100" },
-    { label: "View High-Risk Areas", icon: MapPin, path: "/gis", color: "bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100" },
+    { label: "Report Case", icon: Plus, path: "/reporting", iconColor: "text-red-700" },
+    { label: "Register Animal/Herd", icon: HeartPulse, path: "/animal-health", iconColor: "text-blue-700" },
+    { label: "Collect Sample", icon: TestTube2, path: "/lab", iconColor: "text-blue-700" },
+    { label: "Record Vaccination", icon: Syringe, path: "/vaccination", iconColor: "text-emerald-700" },
+    { label: "View High-Risk Areas", icon: MapPin, path: "/gis", iconColor: "text-amber-700" },
   ];
 
   const pendingActions = [
@@ -85,14 +85,15 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6 pb-8 max-w-full overflow-hidden">
+      <h1 className="sr-only">Maharashtra livestock disease surveillance dashboard</h1>
       {/* Top Provenance & Live Stream Status Banner */}
-      <div className="bg-white px-3 sm:px-4 py-2.5 rounded-xl border border-gray-200 flex flex-wrap items-center justify-between text-xs text-gray-600 gap-2">
+      <div className="bg-white px-3 sm:px-4 py-2.5 rounded-xl border border-gray-200 flex flex-wrap items-center justify-between text-xs text-gray-700 gap-2">
         <div className="flex flex-wrap items-center gap-2">
           <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping shrink-0" />
           <span className="font-bold text-gray-900">DATA STREAM: {feedStatus}</span>
-          <span className="text-gray-300 hidden sm:inline">|</span>
+          <span className="text-gray-400 hidden sm:inline">|</span>
           <span className="hidden sm:inline">Coverage: All 36 Maharashtra Districts</span>
-          <span className="text-gray-300 hidden md:inline">|</span>
+          <span className="text-gray-400 hidden md:inline">|</span>
           <span className="hidden md:inline">Sources: Field Reports, 20th Census (DAHD)</span>
         </div>
 
@@ -100,14 +101,14 @@ export default function Dashboard() {
           {pendingCount > 0 && (
             <button
               onClick={openSyncModal}
-              className="text-[11px] font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 px-2 py-0.5 rounded-full flex items-center gap-1"
+              className="text-xs font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 px-2 py-0.5 rounded-full flex items-center gap-1"
             >
               <Database size={11} />
               <span>Offline Queue: {pendingCount}</span>
             </button>
           )}
           {lastUpdated && (
-            <div className="text-gray-500 font-mono text-[11px]">
+            <div className="text-gray-500 font-mono text-xs">
               Refreshed: {lastUpdated}
             </div>
           )}
@@ -127,8 +128,8 @@ export default function Dashboard() {
                 <div className={`p-2 rounded-lg shrink-0 ${stat.color}`}>
                   <Icon size={20} />
                 </div>
-                <span className={`text-xs font-bold px-1.5 py-0.5 rounded ${
-                  stat.trend.startsWith("+") ? "text-red-600 bg-red-50" : "text-green-600 bg-green-50"
+                <span className={`text-xs font-bold px-1.5 py-0.5 rounded-lg ${
+                  stat.trend.startsWith("+") ? "text-red-700 bg-red-50" : "text-emerald-700 bg-emerald-50"
                 }`}>
                   {stat.trend}
                 </span>
@@ -150,9 +151,9 @@ export default function Dashboard() {
             <button 
               key={i} 
               onClick={() => navigate(action.path)} 
-              className={`flex items-center justify-center gap-2 p-3 sm:p-3.5 rounded-xl border text-xs sm:text-sm font-bold transition-all min-h-[44px] touch-manipulation text-center ${action.color}`}
+              className="flex items-center justify-center gap-2 px-3 py-3 rounded-xl border border-gray-200 bg-white text-gray-700 text-xs sm:text-sm font-semibold transition-colors min-h-[48px] touch-manipulation text-center hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
             >
-              <Icon size={18} className="shrink-0" />
+              <Icon size={18} className={`shrink-0 ${action.iconColor}`} />
               <span className="truncate">{action.label}</span>
             </button>
           );
@@ -164,11 +165,11 @@ export default function Dashboard() {
         {/* Main Map with Google Maps / Leaflet adapter */}
         <div className="bg-white p-4 sm:p-5 rounded-2xl shadow-xs border border-gray-200 lg:col-span-2 flex flex-col min-h-[380px] sm:min-h-[440px] overflow-hidden">
           <div className="flex flex-wrap justify-between items-center gap-2 mb-3">
-            <h3 className="font-bold text-gray-900 flex items-center gap-2 text-sm sm:text-base">
-              <MapPin className="text-brandBlue shrink-0" size={18}/> 
+            <h2 className="font-bold text-gray-900 flex items-center gap-2 text-sm sm:text-base">
+              <MapPin className="text-blue-700 shrink-0" size={18}/> 
               <span>Maharashtra Disease Surveillance GIS Map</span>
-            </h3>
-            <div className="flex flex-wrap gap-2 text-[11px] font-medium">
+            </h2>
+            <div className="flex flex-wrap gap-2 text-xs font-medium text-gray-700">
               <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-red-600"></span> Outbreak</span>
               <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-orange-500"></span> High Risk</span>
               <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-blue-600"></span> Facility</span>
@@ -189,10 +190,10 @@ export default function Dashboard() {
           {/* Pending Triage Actions */}
           <div className="bg-white rounded-2xl shadow-xs border border-gray-200 flex flex-col min-h-[160px] overflow-hidden">
             <div className="p-3.5 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
-              <h3 className="font-bold text-gray-900 text-xs sm:text-sm flex items-center gap-2">
-                <CheckCircle className="text-brandBlue" size={16}/> Pending Triage & Actions
-              </h3>
-              <span className="px-2 py-0.5 bg-red-100 text-red-700 text-[10px] font-bold rounded-full">
+              <h2 className="font-bold text-gray-900 text-xs sm:text-sm flex items-center gap-2">
+                <CheckCircle className="text-blue-700" size={16}/> Pending Triage & Actions
+              </h2>
+              <span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs font-bold rounded-full">
                 {pendingActions.length}
               </span>
             </div>
@@ -205,10 +206,10 @@ export default function Dashboard() {
                 >
                   <div className="mt-1 w-2 h-2 rounded-full bg-red-500 shrink-0" />
                   <div className="min-w-0 flex-1">
-                    <p className="text-xs font-semibold text-gray-800 group-hover:text-brandBlue transition-colors truncate">
+                    <p className="text-xs font-semibold text-gray-700 group-hover:text-blue-700 transition-colors truncate">
                       {act.text}
                     </p>
-                    <p className="text-[10px] text-gray-500 mt-0.5">{act.type} • {act.time}</p>
+                    <p className="text-xs text-gray-500 mt-0.5">{act.type} • {act.time}</p>
                   </div>
                 </div>
               ))}
@@ -218,12 +219,12 @@ export default function Dashboard() {
           {/* Quick Recent Alerts */}
           <div className="bg-white rounded-2xl shadow-xs border border-gray-200 flex flex-col min-h-[160px] overflow-hidden">
             <div className="p-3.5 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
-              <h3 className="font-bold text-gray-900 text-xs sm:text-sm flex items-center gap-2">
-                <BellRing className="text-orange-500" size={16}/> Recent Alerts
-              </h3>
+              <h2 className="font-bold text-gray-900 text-xs sm:text-sm flex items-center gap-2">
+                <BellRing className="text-amber-700" size={16}/> Recent Alerts
+              </h2>
               <button 
                 onClick={() => navigate("/alerts")} 
-                className="text-xs text-brandBlue hover:underline font-semibold"
+                className="link-action"
               >
                 View All
               </button>
@@ -236,12 +237,12 @@ export default function Dashboard() {
                   className="p-2.5 hover:bg-gray-50 rounded-xl flex flex-col gap-0.5 cursor-pointer transition-colors"
                 >
                   <div className="flex justify-between items-start gap-2">
-                    <p className="text-xs font-semibold text-gray-800 truncate">{alert.title}</p>
-                    <span className="text-[9px] font-bold text-gray-500 bg-gray-100 px-1.5 py-0.2 rounded shrink-0">
+                    <p className="text-xs font-semibold text-gray-700 truncate">{alert.title}</p>
+                    <span className="text-xs font-bold text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded-lg shrink-0">
                       {alert.type.toUpperCase()}
                     </span>
                   </div>
-                  <p className="text-[10px] text-gray-500">{alert.time}</p>
+                  <p className="text-xs text-gray-500">{alert.time}</p>
                 </div>
               ))}
             </div>
@@ -251,11 +252,11 @@ export default function Dashboard() {
           <div className="bg-gradient-to-br from-red-50 to-orange-50 rounded-2xl border border-red-200 p-4 text-center">
             <div className="flex justify-center items-center gap-1.5 mb-1 text-red-700">
               <Phone size={18} />
-              <h3 className="font-black text-sm">{t('helpline.title')}</h3>
+              <h2 className="font-black text-sm">{t('helpline.title')}</h2>
             </div>
             <p className="text-xs text-gray-700 mb-1 font-semibold">{t('helpline.subtitle')}</p>
-            <div className="text-3xl font-black text-red-600 mb-2 tracking-tight">1962</div>
-            <p className="text-[11px] text-gray-500 mb-3">{t('helpline.timing')}</p>
+            <div className="text-3xl font-black text-red-700 mb-2 tracking-tight">1962</div>
+            <p className="text-xs text-gray-500 mb-3">{t('helpline.timing')}</p>
             
             <button 
               onClick={() => navigate("/gis")} 
@@ -277,13 +278,13 @@ export default function Dashboard() {
         {/* Disease Trends Chart */}
         <div className="bg-white p-4 sm:p-5 rounded-2xl shadow-xs border border-gray-200 overflow-hidden">
           <div className="flex justify-between items-center mb-4 flex-wrap gap-2">
-            <h3 className="font-bold text-gray-900 flex items-center gap-2 text-sm sm:text-base">
-              <Activity className="text-brandBlue shrink-0" size={18}/> Disease Trends
-            </h3>
+            <h2 className="font-bold text-gray-900 flex items-center gap-2 text-sm sm:text-base">
+              <Activity className="text-blue-700 shrink-0" size={18}/> Disease Trends
+            </h2>
             <select 
               value={trendFilter} 
               onChange={e => setTrendFilter(e.target.value)} 
-              className="border border-gray-300 rounded-lg text-xs px-2.5 py-1.5 focus:ring-brandBlue focus:border-brandBlue bg-white"
+              className="border border-gray-300 rounded-xl text-xs text-gray-700 px-2.5 py-1.5 focus:ring-blue-700 focus:border-blue-700 bg-white"
             >
               <option value="7">Last 7 Days</option>
               <option value="30">Last 30 Days</option>
@@ -308,12 +309,12 @@ export default function Dashboard() {
         {/* High Risk Districts Table */}
         <div className="bg-white rounded-2xl shadow-xs border border-gray-200 flex flex-col overflow-hidden">
           <div className="p-4 sm:p-5 border-b border-gray-100 flex justify-between items-center bg-gray-50/40">
-            <h3 className="font-bold text-gray-900 flex items-center gap-2 text-sm sm:text-base">
-              <AlertTriangle className="text-orange-500 shrink-0" size={18}/> High-Risk Districts
-            </h3>
+            <h2 className="font-bold text-gray-900 flex items-center gap-2 text-sm sm:text-base">
+              <AlertTriangle className="text-amber-700 shrink-0" size={18}/> High-Risk Districts
+            </h2>
             <button 
               onClick={() => navigate("/analytics")} 
-              className="text-xs text-brandBlue hover:underline font-semibold flex items-center gap-1"
+              className="link-action"
             >
               <span>Details</span>
               <ArrowRight size={13}/>
@@ -332,27 +333,27 @@ export default function Dashboard() {
               <tbody className="divide-y divide-gray-100">
                 <tr className="hover:bg-gray-50">
                   <td className="py-2.5 pr-3 font-bold text-gray-900">Pune</td>
-                  <td className="py-2.5 px-3"><span className="px-2 py-0.5 bg-red-100 text-red-700 text-[10px] font-bold rounded-full">FMD</span></td>
+                  <td className="py-2.5 px-3"><span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs font-bold rounded-full">FMD</span></td>
                   <td className="py-2.5 px-3 text-gray-700">452</td>
-                  <td className="py-2.5 pl-3 text-right text-red-500 font-bold">↑ 12%</td>
+                  <td className="py-2.5 pl-3 text-right text-red-700 font-bold">↑ 12%</td>
                 </tr>
                 <tr className="hover:bg-gray-50">
                   <td className="py-2.5 pr-3 font-bold text-gray-900">Nashik</td>
-                  <td className="py-2.5 px-3"><span className="px-2 py-0.5 bg-orange-100 text-orange-700 text-[10px] font-bold rounded-full">LSD</span></td>
+                  <td className="py-2.5 px-3"><span className="px-2 py-0.5 bg-amber-100 text-amber-900 text-xs font-bold rounded-full">LSD</span></td>
                   <td className="py-2.5 px-3 text-gray-700">318</td>
-                  <td className="py-2.5 pl-3 text-right text-orange-500 font-bold">↑ 5%</td>
+                  <td className="py-2.5 pl-3 text-right text-amber-700 font-bold">↑ 5%</td>
                 </tr>
                 <tr className="hover:bg-gray-50">
                   <td className="py-2.5 pr-3 font-bold text-gray-900">Ahmednagar</td>
-                  <td className="py-2.5 px-3"><span className="px-2 py-0.5 bg-yellow-100 text-yellow-800 text-[10px] font-bold rounded-full">Brucellosis</span></td>
+                  <td className="py-2.5 px-3"><span className="px-2 py-0.5 bg-amber-100 text-amber-900 text-xs font-bold rounded-full">Brucellosis</span></td>
                   <td className="py-2.5 px-3 text-gray-700">189</td>
                   <td className="py-2.5 pl-3 text-right text-gray-400 font-bold">— 0%</td>
                 </tr>
                 <tr className="hover:bg-gray-50">
                   <td className="py-2.5 pr-3 font-bold text-gray-900">Satara</td>
-                  <td className="py-2.5 px-3"><span className="px-2 py-0.5 bg-red-100 text-red-700 text-[10px] font-bold rounded-full">FMD</span></td>
+                  <td className="py-2.5 px-3"><span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs font-bold rounded-full">FMD</span></td>
                   <td className="py-2.5 px-3 text-gray-700">145</td>
-                  <td className="py-2.5 pl-3 text-right text-green-500 font-bold">↓ 8%</td>
+                  <td className="py-2.5 pl-3 text-right text-emerald-700 font-bold">↓ 8%</td>
                 </tr>
               </tbody>
             </table>

@@ -47,6 +47,11 @@ export default function PashuMap({
     );
   });
 
+  // Issue 13: the Google API-key tooling is developer configuration. It is hidden in
+  // production — the map key is provided via the VITE_GOOGLE_MAPS_API_KEY env var.
+  const allowMapConfig =
+    import.meta.env.DEV || import.meta.env.VITE_ENABLE_MAP_CONFIG === "true";
+
   const [showKeyModal, setShowKeyModal] = useState(false);
   const [tempKeyInput, setTempKeyInput] = useState("");
   const [isGoogleReady, setIsGoogleReady] = useState(false);
@@ -325,34 +330,20 @@ export default function PashuMap({
       {/* Top Controls Toolbar */}
       <div className="p-3 bg-white/95 backdrop-blur-md border-b border-gray-200 flex flex-wrap items-center justify-between gap-2 z-20 shrink-0">
         <div className="flex items-center gap-2">
-          {/* Provider Badge */}
-          <div
-            className={`px-2.5 py-1 rounded-full text-xs font-bold flex items-center gap-1.5 border shadow-2xs ${
-              activeProviderIsGoogle
-                ? "bg-emerald-50 text-emerald-800 border-emerald-300"
-                : "bg-blue-50 text-blue-800 border-blue-200"
-            }`}
-          >
-            <span
-              className={`w-2 h-2 rounded-full ${
-                activeProviderIsGoogle ? "bg-emerald-500 animate-pulse" : "bg-blue-500"
-              }`}
-            />
-            <span>{activeProviderIsGoogle ? "Google Maps API (Live)" : "Leaflet GIS (Active Fallback)"}</span>
-          </div>
-
-          {/* Key Config Button */}
-          <button
-            onClick={() => {
-              setTempKeyInput(apiKey);
-              setShowKeyModal(true);
-            }}
-            className="flex items-center gap-1 text-xs text-gray-700 hover:text-blue-600 bg-gray-100 hover:bg-gray-200 px-2.5 py-1 rounded-lg font-medium transition-colors border border-gray-200"
-            title="Configure Google Maps API Key"
-          >
-            <Key size={13} className="text-amber-600" />
-            <span>{apiKey ? "Key Configured" : "Enter Google API Key"}</span>
-          </button>
+          {/* Developer-only map key tooling (hidden in production). */}
+          {allowMapConfig && (
+            <button
+              onClick={() => {
+                setTempKeyInput(apiKey);
+                setShowKeyModal(true);
+              }}
+              className="btn btn-neutral"
+              title="Configure Google Maps API Key (developer setting)"
+            >
+              <Key size={13} className="text-amber-700" />
+              <span>{apiKey ? "Map Key Set" : "Set Map Key"}</span>
+            </button>
+          )}
         </div>
 
         {/* Search & Map Action Toggles */}
@@ -366,7 +357,7 @@ export default function PashuMap({
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search village/district..."
-                  className="w-44 sm:w-56 text-xs pl-7 pr-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-44 sm:w-56 text-xs text-gray-900 placeholder:text-gray-500 pl-7 pr-2 py-1.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-1 focus:ring-blue-500"
                 />
                 <Search size={13} className="absolute left-2 top-2 text-gray-400" />
               </div>
@@ -376,10 +367,9 @@ export default function PashuMap({
           {showHeatmapToggle && activeProviderIsGoogle && (
             <button
               onClick={() => setShowHeatmap(!showHeatmap)}
-              className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors ${
-                showHeatmap ? "bg-red-600 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-              }`}
+              className={`btn ${showHeatmap ? "btn-primary" : "btn-neutral"}`}
               title="Toggle Outbreak Density Heatmap"
+              aria-pressed={showHeatmap}
             >
               <Flame size={13} />
               <span className="hidden sm:inline">Heatmap</span>
@@ -388,27 +378,30 @@ export default function PashuMap({
 
           <button
             onClick={handleLocateMe}
-            className="p-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-700 transition-colors"
+            className="btn btn-neutral min-h-[40px] min-w-[40px]"
             title="Recenter to My GPS Location"
+            aria-label="Recenter map to my GPS location"
           >
             <Crosshair size={15} />
           </button>
         </div>
       </div>
 
-      {/* Error notification if key is invalid */}
+      {/* Friendly notice when the enhanced map cannot load — standard map stays usable. */}
       {googleLoadError && (
         <div className="px-4 py-2 bg-amber-50 text-amber-900 border-b border-amber-200 text-xs flex items-center justify-between gap-2 z-20">
           <div className="flex items-center gap-2">
-            <AlertCircle size={15} className="text-amber-600 shrink-0" />
-            <span>{googleLoadError}</span>
+            <AlertCircle size={15} className="text-amber-700 shrink-0" />
+            <span>Enhanced map unavailable — showing the standard disease map.</span>
           </div>
-          <button
-            onClick={() => setShowKeyModal(true)}
-            className="text-xs font-bold underline text-amber-800 hover:text-amber-900"
-          >
-            Update Key
-          </button>
+          {allowMapConfig && (
+            <button
+              onClick={() => setShowKeyModal(true)}
+              className="text-xs font-bold underline text-amber-900 hover:text-amber-700"
+            >
+              Update Key
+            </button>
+          )}
         </div>
       )}
 
@@ -457,11 +450,11 @@ export default function PashuMap({
                       <h4 className="font-bold text-sm text-gray-900">{p.name}</h4>
                       <p className="text-xs text-gray-500 capitalize">Type: {p.type}</p>
                       {p.riskLevel && (
-                        <span className="inline-block mt-1 px-2 py-0.5 text-[10px] font-bold rounded bg-red-100 text-red-800">
+                        <span className="inline-block mt-1 px-2 py-0.5 text-xs font-bold rounded-lg bg-red-100 text-red-700">
                           {p.riskLevel}
                         </span>
                       )}
-                      {p.details && <p className="text-xs text-gray-600 mt-1">{p.details}</p>}
+                      {p.details && <p className="text-xs text-gray-500 mt-1">{p.details}</p>}
                     </div>
                   </Popup>
                 </CircleMarker>
@@ -478,22 +471,27 @@ export default function PashuMap({
         )}
       </div>
 
-      {/* Google Maps API Key Modal */}
-      {showKeyModal && (
+      {/* Google Maps API Key Modal (developer setting — not rendered in production) */}
+      {showKeyModal && allowMapConfig && (
         <div className="absolute inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-md w-full border border-gray-200 animate-in fade-in zoom-in-95 duration-150">
+          <div
+            className="bg-white rounded-2xl shadow-2xl p-6 max-w-md w-full border border-gray-200 animate-in fade-in zoom-in-95 duration-150"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Map API key configuration"
+          >
             <div className="flex items-center gap-3 mb-4">
               <div className="p-2.5 rounded-xl bg-blue-100 text-blue-700">
                 <Key size={22} />
               </div>
               <div>
                 <h3 className="font-bold text-gray-900 text-base">Google Maps API Integration</h3>
-                <p className="text-xs text-gray-500">Real-time Maps JavaScript SDK + Places + Geocoding</p>
+                <p className="text-xs text-gray-500">Developer setting: Maps SDK + Places + Geocoding</p>
               </div>
             </div>
 
-            <p className="text-xs text-gray-600 mb-4 leading-relaxed">
-              Enter a valid <b>Google Maps API Key</b> with Maps JavaScript API enabled. The key will be stored securely in your browser's local session and activate satellite views, marker clustering, places search, and routing.
+            <p className="text-xs text-gray-700 mb-4 leading-relaxed">
+              Enter a valid <b>Google Maps API Key</b> with Maps JavaScript API enabled. For production, set <code>VITE_GOOGLE_MAPS_API_KEY</code> on the server instead.
             </p>
 
             <div className="space-y-3 mb-5">
@@ -506,11 +504,11 @@ export default function PashuMap({
                   value={tempKeyInput}
                   onChange={(e) => setTempKeyInput(e.target.value)}
                   placeholder="AIzaSy..."
-                  className="w-full text-xs font-mono p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  className="w-full text-xs text-gray-900 placeholder:text-gray-500 font-mono p-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none"
                 />
               </div>
 
-              <div className="text-[11px] text-gray-500 bg-gray-50 p-2.5 rounded-lg border border-gray-200">
+              <div className="text-xs text-gray-500 bg-gray-50 p-2.5 rounded-lg border border-gray-200">
                 <b>Environment Variable:</b> You can also permanently set <code>VITE_GOOGLE_MAPS_API_KEY</code> in your <code>.env</code> file.
               </div>
             </div>
@@ -519,20 +517,20 @@ export default function PashuMap({
               {apiKey && (
                 <button
                   onClick={handleRemoveKey}
-                  className="text-xs text-red-600 hover:text-red-700 px-3 py-2 font-semibold"
+                  className="text-xs text-red-700 hover:text-red-700 px-3 py-2 font-semibold hover:underline"
                 >
                   Clear Key
                 </button>
               )}
               <button
                 onClick={() => setShowKeyModal(false)}
-                className="text-xs text-gray-600 hover:bg-gray-100 px-4 py-2 rounded-lg font-medium"
+                className="btn btn-ghost"
               >
                 Cancel
               </button>
               <button
                 onClick={handleSaveApiKey}
-                className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg font-bold shadow-sm"
+                className="btn btn-primary"
               >
                 Apply & Connect
               </button>

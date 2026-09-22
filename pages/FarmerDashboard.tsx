@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { 
-  Mic, HeartPulse, AlertTriangle, Stethoscope, Syringe, 
-  TestTube2, BellRing, MapPin, BookOpen, PhoneCall, 
+import { Link } from "react-router-dom";
+import {
+  Mic, HeartPulse, AlertTriangle, Stethoscope, Syringe,
+  TestTube2, BellRing, MapPin, BookOpen, PhoneCall,
   Clock, ShieldCheck, ArrowRight
 } from "lucide-react";
 import { useMultilingual } from "../context/MultilingualContext";
@@ -10,10 +10,24 @@ import { useAuth } from "../context/AuthContext";
 import PashuMap from "../components/PashuMap";
 import ActivityFeedWidget from "../components/ActivityFeedWidget";
 
+/*
+ * Issue 12 — semantic accent system for the action grid (3 accents, not 8 gradients):
+ *   red     = urgent care & warnings (report, vet dispatch, alerts)
+ *   blue    = AI assistant entry point (voice)
+ *   emerald = routine records & information (animals, vaccination, lab, disease info)
+ * Cards share one neutral surface (.btn-card); only the icon chip + badge carry the accent.
+ */
+type CardAccent = "red" | "blue" | "emerald";
+
+const ACCENT_STYLES: Record<CardAccent, { chip: string; badge: string }> = {
+  red: { chip: "bg-red-600", badge: "bg-red-50 text-red-700" },
+  blue: { chip: "bg-blue-600", badge: "bg-blue-50 text-blue-700" },
+  emerald: { chip: "bg-emerald-600", badge: "bg-emerald-50 text-emerald-700" },
+};
+
 export default function FarmerDashboard() {
   const { t, language } = useMultilingual();
   const { user } = useAuth();
-  const navigate = useNavigate();
 
   const [recentReports, setRecentReports] = useState<any[]>([]);
 
@@ -26,14 +40,22 @@ export default function FarmerDashboard() {
       .catch(() => {});
   }, []);
 
-  const actionCards = [
+  const actionCards: {
+    id: string;
+    title: string;
+    subtitle: string;
+    icon: typeof Mic;
+    accent: CardAccent;
+    badge?: string;
+    to?: string;
+    onClick?: () => void;
+  }[] = [
     {
       id: "voice",
       title: t("farmer.talk"),
       subtitle: language === "mr" ? "आवाजाने तक्रार करा किंवा माहिती विचारा" : "Voice reporting & instant guidance",
       icon: Mic,
-      color: "from-blue-600 to-indigo-600",
-      textColor: "text-white",
+      accent: "blue",
       badge: "AI Powered",
       onClick: () => {
         const voiceBtn = document.querySelector('button[aria-label="' + t("card.voiceInput") + '"]') as HTMLElement;
@@ -45,88 +67,81 @@ export default function FarmerDashboard() {
       title: t("farmer.reportSick"),
       subtitle: language === "mr" ? "आजारी जनावराची त्वरित नोंदणी" : "Quick syndromic field report",
       icon: AlertTriangle,
-      color: "from-red-600 to-rose-700",
-      textColor: "text-white",
+      accent: "red",
       badge: "Emergency",
-      onClick: () => navigate("/reporting")
+      to: "/reporting"
     },
     {
       id: "vet",
       title: t("farmer.requestVet"),
       subtitle: language === "mr" ? "शासकीय पशुवैद्यक व मोबाइल युनिट" : "Dispatch Veterinary Officer (1962)",
       icon: Stethoscope,
-      color: "from-teal-600 to-emerald-700",
-      textColor: "text-white",
+      accent: "red",
       badge: "Toll-Free 1962",
-      onClick: () => navigate("/vet-response")
+      to: "/vet-response"
     },
     {
       id: "animals",
       title: t("farmer.myAnimals"),
       subtitle: language === "mr" ? "नोंदणीकृत जनावरे आणि कळप" : "Registered Cattle & Herds",
       icon: HeartPulse,
-      color: "from-amber-600 to-orange-700",
-      textColor: "text-white",
-      onClick: () => navigate("/animal-health")
+      accent: "emerald",
+      to: "/animal-health"
     },
     {
       id: "vaccine",
       title: t("farmer.vaccination"),
       subtitle: language === "mr" ? "एफएमडी आणि लंपी लसीकरण तारीख" : "NADCP Schedules & Due Dates",
       icon: Syringe,
-      color: "from-purple-600 to-indigo-800",
-      textColor: "text-white",
-      onClick: () => navigate("/vaccination")
+      accent: "emerald",
+      to: "/vaccination"
     },
     {
       id: "lab",
       title: t("farmer.labResults"),
       subtitle: language === "mr" ? "तपासणी निकाल आणि अहवाल" : "RT-PCR & Diagnostic Reports",
       icon: TestTube2,
-      color: "from-cyan-600 to-blue-800",
-      textColor: "text-white",
-      onClick: () => navigate("/lab")
+      accent: "emerald",
+      to: "/lab"
     },
     {
       id: "alerts",
       title: t("farmer.alerts"),
       subtitle: language === "mr" ? "गावातील रोग सूचना व सावधानता" : "Outbreak Warnings in Taluka",
       icon: BellRing,
-      color: "from-orange-500 to-amber-600",
-      textColor: "text-white",
-      onClick: () => navigate("/alerts")
+      accent: "red",
+      to: "/alerts"
     },
     {
       id: "info",
       title: t("di.title"),
       subtitle: language === "mr" ? "रोग लक्षणे आणि घरगुती प्रथमोपचार" : "Disease Symptoms & Biosecurity",
       icon: BookOpen,
-      color: "from-emerald-600 to-green-700",
-      textColor: "text-white",
-      onClick: () => navigate("/disease-info")
+      accent: "emerald",
+      to: "/disease-info"
     }
   ];
 
   return (
     <div className="space-y-6 pb-12 max-w-7xl mx-auto overflow-hidden">
       {/* Farmer Welcome Banner with Emergency 1962 Helpline */}
-      <div className="bg-gradient-to-r from-emerald-800 via-teal-800 to-blue-900 rounded-2xl sm:rounded-3xl p-5 sm:p-6 lg:p-8 text-white shadow-lg relative overflow-hidden">
+      <div className="bg-gradient-to-r from-emerald-800 via-teal-800 to-blue-900 rounded-2xl p-5 sm:p-6 lg:p-8 text-white shadow-lg relative overflow-hidden">
         <div className="absolute right-0 top-0 bottom-0 w-1/3 bg-white/5 transform skew-x-12 pointer-events-none" />
-        
+
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-5 sm:gap-6 relative z-10">
           <div>
             <div className="flex items-center gap-2 mb-2">
               <span className="px-3 py-1 bg-white/20 backdrop-blur rounded-full text-xs font-bold tracking-wide uppercase">
                 {t("nav.farmerHome")}
               </span>
-              <span className="text-emerald-200 text-xs font-semibold">
+              <span className="text-white text-xs font-semibold">
                 📍 {user?.village || "Walwur"}, {user?.district || "Pune"}
               </span>
             </div>
             <h1 className="text-xl sm:text-2xl md:text-3xl font-black tracking-tight">
               {language === "mr" ? `नमस्कार, ${user?.full_name || "शेतकरी मित्र"}` : `Welcome, ${user?.full_name || "Livestock Keeper"}`}
             </h1>
-            <p className="text-emerald-100 text-xs sm:text-sm mt-1 max-w-xl">
+            <p className="text-white text-xs sm:text-sm mt-1 max-w-xl">
               {language === "mr"
                 ? "पशु-शील्ड: महाराष्ट्र शासनाची २४x७ पशुआरोग्य सुरक्षा प्रणाली. कोणत्याही समस्येसाठी खालील बटणे दाबा."
                 : "24x7 livestock surveillance & veterinary emergency assistance platform for Maharashtra."}
@@ -136,10 +151,10 @@ export default function FarmerDashboard() {
           <div className="flex flex-col sm:flex-row items-center gap-3">
             <a
               href="tel:1962"
-              className="w-full sm:w-auto px-5 sm:px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl sm:rounded-2xl font-bold flex items-center justify-center gap-2 shadow-lg transition-transform hover:scale-105 active:scale-95 touch-manipulation min-h-[44px]"
+              className="btn btn-emergency min-h-[44px] w-full sm:w-auto px-5 sm:px-6 py-3 text-sm shadow-lg hover:scale-105 active:scale-95"
             >
               <PhoneCall size={18} className="animate-bounce" />
-              <span className="text-sm">{t("farmer.emergencyCall")}</span>
+              <span>{t("farmer.emergencyCall")}</span>
             </a>
           </div>
         </div>
@@ -149,29 +164,41 @@ export default function FarmerDashboard() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {actionCards.map((card) => {
           const Icon = card.icon;
-          return (
-            <button
-              key={card.id}
-              onClick={card.onClick}
-              className={`p-5 sm:p-6 rounded-2xl sm:rounded-3xl bg-gradient-to-br ${card.color} ${card.textColor} shadow-xs hover:shadow-md transition-all duration-200 text-left flex flex-col justify-between min-h-[140px] sm:min-h-[160px] relative overflow-hidden group focus:outline-none focus:ring-4 focus:ring-blue-300 touch-manipulation`}
-            >
-              <div className="flex justify-between items-start">
-                <div className="p-2.5 sm:p-3 bg-white/20 backdrop-blur rounded-xl sm:rounded-2xl">
+          const accent = ACCENT_STYLES[card.accent];
+          const inner = (
+            <>
+              <div className="flex justify-between items-start gap-2">
+                <div className={`p-2.5 sm:p-3 rounded-xl text-white ${accent.chip}`}>
                   <Icon size={24} />
                 </div>
                 {card.badge && (
-                  <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-white/30 tracking-wider uppercase">
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-bold tracking-wide uppercase ${accent.badge}`}>
                     {card.badge}
                   </span>
                 )}
               </div>
 
               <div className="mt-3">
-                <h3 className="text-base sm:text-lg font-bold leading-tight group-hover:underline">
+                {/* Issue 11: card titles are H2 — direct children of the page H1, no skipped level. */}
+                <h2 className="text-base sm:text-lg font-bold leading-tight text-gray-900 group-hover:underline">
                   {card.title}
-                </h3>
-                <p className="text-xs text-white/80 mt-0.5 line-clamp-1">{card.subtitle}</p>
+                </h2>
+                <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">{card.subtitle}</p>
               </div>
+            </>
+          );
+
+          return card.to ? (
+            <Link key={card.id} to={card.to} className="btn-card group touch-manipulation">
+              {inner}
+            </Link>
+          ) : (
+            <button
+              key={card.id}
+              onClick={card.onClick}
+              className="btn-card group touch-manipulation"
+            >
+              {inner}
             </button>
           );
         })}
@@ -180,29 +207,26 @@ export default function FarmerDashboard() {
       {/* Two Column Section: Recent Cases & Local Facilities Map */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Recent Reports Tracking */}
-        <div className="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-6 border border-gray-200/80 shadow-xs space-y-4">
+        <div className="bg-white rounded-2xl p-4 sm:p-6 border border-gray-200/80 shadow-xs space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="font-bold text-gray-900 text-base sm:text-lg flex items-center gap-2">
-              <Clock className="text-blue-600" size={18} />
+            <h2 className="font-bold text-gray-900 text-base sm:text-lg flex items-center gap-2">
+              <Clock className="text-blue-700" size={18} />
               <span>{language === "mr" ? "माझे अलीकडील अहवाल" : "My Reported Cases"}</span>
-            </h3>
-            <button
-              onClick={() => navigate("/reporting")}
-              className="text-xs text-blue-600 font-bold hover:underline flex items-center gap-1 p-1"
-            >
+            </h2>
+            <Link to="/reporting" className="link-action">
               <span>{language === "mr" ? "सर्व पहा" : "View All"}</span>
               <ArrowRight size={13} />
-            </button>
+            </Link>
           </div>
 
           <div className="space-y-2.5">
             {recentReports.length === 0 ? (
               <div className="text-center py-6 text-gray-400">
-                <ShieldCheck size={36} className="mx-auto text-emerald-500 mb-2" />
+                <ShieldCheck size={36} className="mx-auto text-emerald-700 mb-2" />
                 <p className="text-xs sm:text-sm font-semibold text-gray-700">
                   {language === "mr" ? "कोणतीही सक्रिय रोग तक्रार नाही" : "No active disease reports recorded."}
                 </p>
-                <p className="text-[11px] text-gray-400 mt-0.5">
+                <p className="text-xs text-gray-400 mt-0.5">
                   {language === "mr" ? "सर्व जनावरे निरोगी आहेत." : "All livestock currently marked healthy."}
                 </p>
               </div>
@@ -210,22 +234,22 @@ export default function FarmerDashboard() {
               recentReports.map((r) => (
                 <div
                   key={r.id}
-                  className="p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-gray-50 border border-gray-200/60 flex items-center justify-between hover:bg-blue-50/40 transition-colors"
+                  className="p-3 sm:p-4 rounded-xl bg-gray-50 border border-gray-200/60 flex items-center justify-between hover:bg-blue-50/40 transition-colors"
                 >
                   <div className="min-w-0 pr-2">
                     <div className="flex items-center gap-1.5">
                       <span className="font-bold text-gray-900 text-xs sm:text-sm">{r.species}</span>
-                      <span className="text-[10px] text-gray-500 font-mono truncate">({r.reportNumber || r.id})</span>
+                      <span className="text-xs text-gray-500 font-mono truncate">({r.reportNumber || r.id})</span>
                     </div>
-                    <p className="text-xs text-gray-600 mt-0.5 truncate">
+                    <p className="text-xs text-gray-500 mt-0.5 truncate">
                       {r.disease || "Suspected Signs"} • {r.village}, {r.district}
                     </p>
-                    <span className="inline-block mt-1 px-2 py-0.2 rounded text-[9px] font-bold bg-amber-100 text-amber-800">
+                    <span className="inline-block mt-1 px-2 py-0.5 rounded-lg text-xs font-bold bg-amber-100 text-amber-900">
                       Triage: {r.triageRiskLevel || "MODERATE"}
                     </span>
                   </div>
 
-                  <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-800 shrink-0">
+                  <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-blue-700 text-white shrink-0">
                     {r.status}
                   </span>
                 </div>
@@ -235,18 +259,18 @@ export default function FarmerDashboard() {
         </div>
 
         {/* Nearby Facilities & GIS Map */}
-        <div className="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-6 border border-gray-200/80 shadow-xs space-y-3 sm:space-y-4 flex flex-col min-h-[340px]">
+        <div className="bg-white rounded-2xl p-4 sm:p-6 border border-gray-200/80 shadow-xs space-y-3 sm:space-y-4 flex flex-col min-h-[340px]">
           <div className="flex items-center justify-between">
-            <h3 className="font-bold text-gray-900 text-base sm:text-lg flex items-center gap-2">
-              <MapPin className="text-red-500" size={18} />
+            <h2 className="font-bold text-gray-900 text-base sm:text-lg flex items-center gap-2">
+              <MapPin className="text-red-700" size={18} />
               <span>{t("farmer.nearbyHelp")}</span>
-            </h3>
-            <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
+            </h2>
+            <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
               MVU Active (1962)
             </span>
           </div>
 
-          <div className="flex-1 rounded-xl sm:rounded-2xl overflow-hidden border border-gray-200 min-h-[220px]">
+          <div className="flex-1 rounded-xl overflow-hidden border border-gray-200 min-h-[220px]">
             <PashuMap
               height="100%"
               center={[18.8288, 74.3789]}

@@ -185,13 +185,13 @@ export default function PersistentVoiceAssistant() {
   return (
     <>
       {/* Floating Persistent Voice Button */}
-      <div className="fixed bottom-6 right-6 z-[999]">
+      <div className="fixed bottom-6 right-6 z-[999] mb-[env(safe-area-inset-bottom)] mr-[env(safe-area-inset-right)]">
         <button
           onClick={() => {
             setIsOpen(true);
             toggleListening();
           }}
-          className="relative group flex items-center justify-center w-16 h-16 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-full shadow-2xl transition-all duration-300 transform hover:scale-105 active:scale-95 focus:outline-none focus:ring-4 focus:ring-blue-300"
+          className="relative group flex items-center justify-center w-16 h-16 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-2xl transition-all duration-300 transform hover:scale-105 active:scale-95 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-600"
           title={t("card.voiceInput")}
           aria-label={t("card.voiceInput")}
         >
@@ -206,16 +206,21 @@ export default function PersistentVoiceAssistant() {
       {/* Voice Assistant Modal */}
       {isOpen && (
         <div className="fixed inset-0 z-[1000] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl shadow-2xl border border-gray-100 max-w-lg w-full overflow-hidden flex flex-col max-h-[85vh] animate-in fade-in zoom-in-95 duration-200">
+          <div
+            className="bg-white rounded-2xl shadow-2xl border border-gray-100 max-w-lg w-full overflow-hidden flex flex-col max-h-[85vh] animate-in fade-in zoom-in-95 duration-200"
+            role="dialog"
+            aria-modal="true"
+            aria-label={t("farmer.talk")}
+          >
             {/* Header */}
             <div className="bg-gradient-to-r from-blue-600 to-indigo-700 p-5 text-white flex justify-between items-center">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-2xl bg-white/20 flex items-center justify-center">
-                  <Sparkles size={22} className="text-amber-300" />
+                  <Sparkles size={22} className="text-white" />
                 </div>
                 <div>
                   <h3 className="font-bold text-lg leading-tight">{t("farmer.talk")}</h3>
-                  <p className="text-xs text-blue-100 flex items-center gap-1">
+                  <p className="text-xs text-white flex items-center gap-1">
                     <span>{language.toUpperCase()}</span> • <span>AI Clinical Assistant</span>
                   </p>
                 </div>
@@ -236,10 +241,10 @@ export default function PersistentVoiceAssistant() {
               {/* Default Instruction */}
               {!transcript && !assistantReply && (
                 <div className="text-center py-6 text-gray-500">
-                  <div className="w-16 h-16 rounded-full bg-blue-50 text-blue-600 mx-auto flex items-center justify-center mb-3">
+                  <div className="w-16 h-16 rounded-full bg-blue-50 text-blue-700 mx-auto flex items-center justify-center mb-3">
                     <Mic size={28} />
                   </div>
-                  <h4 className="font-semibold text-gray-800 text-base">{t("voice.speakNow")}</h4>
+                  <h4 className="font-semibold text-gray-900 text-base">{t("voice.speakNow")}</h4>
                   <p className="text-xs text-gray-500 mt-1 max-w-xs mx-auto">
                     {language === "mr"
                       ? "उदा. 'माझी गाय आजारी आहे, ताप आहे', 'पशुवैद्यक बोलवा', किंवा 'लसीकरण कधी आहे?'"
@@ -251,7 +256,7 @@ export default function PersistentVoiceAssistant() {
               {/* User Voice Query */}
               {transcript && (
                 <div className="flex justify-end">
-                  <div className="bg-blue-600 text-white rounded-2xl rounded-tr-sm px-4 py-3 max-w-[85%] shadow-sm text-sm font-medium">
+                  <div className="bg-blue-600 text-white rounded-2xl px-4 py-3 max-w-[85%] shadow-sm text-sm font-medium">
                     <p>{transcript}</p>
                   </div>
                 </div>
@@ -260,7 +265,7 @@ export default function PersistentVoiceAssistant() {
               {/* AI Processing Status */}
               {isProcessing && (
                 <div className="flex items-center gap-2 text-blue-700 bg-blue-50 px-4 py-3 rounded-2xl w-fit text-sm">
-                  <Loader2 size={16} className="animate-spin text-blue-600" />
+                  <Loader2 size={16} className="animate-spin text-blue-700" />
                   <span>{t("voice.processing")}</span>
                 </div>
               )}
@@ -271,11 +276,11 @@ export default function PersistentVoiceAssistant() {
                   <div className="w-8 h-8 rounded-full bg-indigo-600 text-white flex items-center justify-center shrink-0 text-xs font-bold mt-1">
                     PS
                   </div>
-                  <div className="bg-white border border-gray-200 text-gray-800 rounded-2xl rounded-tl-sm p-4 shadow-sm text-sm space-y-2">
+                  <div className="bg-white border border-gray-200 text-gray-700 rounded-2xl p-4 shadow-sm text-sm space-y-2">
                     <p className="leading-relaxed whitespace-pre-wrap">{assistantReply}</p>
                     <button
                       onClick={() => speak(assistantReply, language)}
-                      className="text-xs text-blue-600 font-semibold hover:text-blue-800 flex items-center gap-1 pt-1"
+                      className="text-xs text-blue-700 font-semibold hover:underline flex items-center gap-1 pt-1"
                     >
                       <Volume2 size={14} /> {t("btn.play")}
                     </button>
@@ -286,8 +291,8 @@ export default function PersistentVoiceAssistant() {
               {/* Action Confirmation Banner */}
               {pendingAction && (
                 <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-amber-900 space-y-3">
-                  <div className="flex items-center gap-2 font-bold text-sm text-amber-800">
-                    <AlertTriangle size={16} className="text-amber-600" />
+                  <div className="flex items-center gap-2 font-bold text-sm text-amber-900">
+                    <AlertTriangle size={16} className="text-amber-700" />
                     <span>{t("voice.confirmSubmit")}</span>
                   </div>
                   <p className="text-xs text-amber-700">
