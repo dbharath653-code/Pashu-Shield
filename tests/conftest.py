@@ -15,6 +15,17 @@ os.environ.update({
     "JOB_BACKEND": "inline",
     "UPLOAD_DIR": f"{_tmp}/uploads",
     "CORS_ORIGINS": "http://localhost:5173",
+    # Telephony / IVR (real Twilio signature validation against these test credentials)
+    "TELEPHONY_PROVIDER": "twilio",
+    "TWILIO_ACCOUNT_SID": "ACtest000000000000000000000000000000",
+    "TWILIO_AUTH_TOKEN": "test-auth-token-0123456789abcdef0123456789",
+    "TWILIO_PHONE_NUMBER": "+15005550006",
+    "TWILIO_VALIDATE_WEBHOOK": "true",
+    "PUBLIC_API_BASE_URL": "http://test",
+    "IVR_ENABLED": "true",
+    "IVR_DEFAULT_LANGUAGE": "en",
+    "DEMO_MODE": "true",
+    "CALL_RECORDING_ENABLED": "false",
 })
 
 import httpx  # noqa: E402

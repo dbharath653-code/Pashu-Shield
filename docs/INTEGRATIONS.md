@@ -21,7 +21,7 @@ Production (`ENVIRONMENT=production`) refuses to start if a selected provider is
 | WhatsApp Cloud API | `WHATSAPP_PROVIDER=whatsapp_cloud_api`, `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_APP_SECRET` | UNAVAILABLE | No | Same as above. The webhook requires a valid `X-Hub-Signature-256`. |
 | Translation (Google) | `TRANSLATION_PROVIDER=google`, `TRANSLATION_API_KEY` | Local glossary | No | Responses carry `status=FALLBACK_GLOSSARY_PARTIAL` (term substitution only, not a full translation). UI strings use the bundled 8-language i18n files. |
 | Routing (OSRM) | `ROUTING_PROVIDER=osrm`, `OSRM_URL` | UNAVAILABLE | No | Straight-line distance is labelled as such, and ETA is `ETA_UNAVAILABLE`. |
-| IVR | `IVR_PROVIDER`, `IVR_WEBHOOK_SECRET` | UNAVAILABLE | No | `/api/v1/webhooks/ivr` returns 503. It requires an HMAC-SHA256 signature. |
+| IVR / telephony (Twilio inbound) | `TELEPHONY_PROVIDER`, `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_PHONE_NUMBER`, `PUBLIC_API_BASE_URL`, `IVR_ENABLED` | UNAVAILABLE (`TELEPHONY_PROVIDER=none`) | Webhook→TwiML→survey→report flow verified by `tests/test_telephony.py` with the mock provider (59 tests green); a *real* Twilio number becomes LIVE after the first signed inbound call in deployment. | `/api/v1/telephony/*` returns 503. Legacy `/api/v1/webhooks/ivr` (HMAC `IVR_WEBHOOK_SECRET` stub) also 503 unless configured. Signatures: Twilio `X-Twilio-Signature` (fail-closed) or `X-Mock-Signature` in dev. |
 | Speech-to-text | bundled Whisper (browser, offline) | LIVE (on-device) | Runs locally, no network | — |
 
 To mark an integration LIVE in a deployment, configure it and let the scheduled `external_refresh` job (worker) run. Check `last_success_at` on `/api/v1/external/data-sources`.

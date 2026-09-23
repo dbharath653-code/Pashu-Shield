@@ -28,6 +28,24 @@ EVENT_NAMES = {
     "alert.created": ("ALERT_CREATED", "alert"),
     "notification.sent": ("NOTIFICATION_SENT", "notification"),
     "sync.completed": ("SYNC_COMPLETED", "sync"),
+    # --- Inbound IVR / telephony (delivered over the existing WebSocket manager) ---------
+    "call.started": ("CALL_STARTED", "call"),
+    "call.language_selected": ("CALL_LANGUAGE_SELECTED", "call"),
+    "call.vet_search_started": ("CALL_VET_SEARCH_STARTED", "call"),
+    "call.vet_found": ("CALL_VET_FOUND", "call"),
+    "call.vet_dialing": ("CALL_VET_DIALING", "call"),
+    "call.vet_connected": ("CALL_VET_CONNECTED", "call"),
+    "call.vet_unavailable": ("CALL_VET_UNAVAILABLE", "call"),
+    "call.survey_started": ("CALL_SURVEY_STARTED", "call"),
+    "call.survey_answered": ("CALL_SURVEY_ANSWERED", "call"),
+    "call.survey_completed": ("CALL_SURVEY_COMPLETED", "call"),
+    "call.transcript_updated": ("CALL_TRANSCRIPT_UPDATED", "call"),
+    "call.summary_updated": ("CALL_SUMMARY_UPDATED", "call"),
+    "call.report_created": ("CALL_REPORT_CREATED", "call"),
+    "call.triaged": ("CALL_TRIAGED", "call"),
+    "call.callback_requested": ("CALL_CALLBACK_REQUESTED", "call"),
+    "call.callback_updated": ("CALL_CALLBACK_UPDATED", "call"),
+    "call.completed": ("CALL_COMPLETED", "call"),
 }
 
 

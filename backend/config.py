@@ -132,6 +132,33 @@ class Settings(BaseModel):
     IVR_PROVIDER: str = Field(default_factory=lambda: _env("IVR_PROVIDER", "none").lower())
     IVR_WEBHOOK_SECRET: str = Field(default_factory=lambda: _env("IVR_WEBHOOK_SECRET"))
 
+    # --- Telephony / inbound IVR (Twilio) -------------------------------------------------
+    # twilio (real provider) | mock (MockTelephonyProvider, demo/tests — never real calls)
+    TELEPHONY_PROVIDER: str = Field(default_factory=lambda: _env("TELEPHONY_PROVIDER", "twilio").lower())
+    TWILIO_ACCOUNT_SID: str = Field(default_factory=lambda: _env("TWILIO_ACCOUNT_SID"))
+    TWILIO_AUTH_TOKEN: str = Field(default_factory=lambda: _env("TWILIO_AUTH_TOKEN"))
+    TWILIO_PHONE_NUMBER: str = Field(default_factory=lambda: _env("TWILIO_PHONE_NUMBER"))
+    TWILIO_WEBHOOK_SECRET: str = Field(default_factory=lambda: _env("TWILIO_WEBHOOK_SECRET"))
+    # Validate X-Twilio-Signature on every voice webhook (default true; explicitly false disables).
+    TWILIO_VALIDATE_WEBHOOK: bool = Field(default_factory=lambda: _bool("TWILIO_VALIDATE_WEBHOOK", True))
+    # Public https base Twilio reaches (e.g. https://abc.ngrok-free.app) — used for webhook
+    # signature URLs and TwiML action URLs. Required for real inbound calls.
+    PUBLIC_API_BASE_URL: str = Field(default_factory=lambda: _env("PUBLIC_API_BASE_URL"))
+
+    IVR_ENABLED: bool = Field(default_factory=lambda: _bool("IVR_ENABLED", True))
+    IVR_DEFAULT_LANGUAGE: str = Field(default_factory=lambda: _env("IVR_DEFAULT_LANGUAGE", "en").lower())
+    IVR_VET_TIMEOUT_SECONDS: int = Field(default_factory=lambda: _int("IVR_VET_TIMEOUT_SECONDS", 20))
+    IVR_MAX_VET_ATTEMPTS: int = Field(default_factory=lambda: _int("IVR_MAX_VET_ATTEMPTS", 3))
+    CALL_RECORDING_ENABLED: bool = Field(default_factory=lambda: _bool("CALL_RECORDING_ENABLED", False))
+    # Safe demo endpoints ("Simulate Incoming Farmer Call") — refused in production.
+    DEMO_MODE: bool = Field(default_factory=lambda: _bool("DEMO_MODE", False))
+
+    # --- Speech-to-text / AI call summary for IVR recordings -------------------------------
+    STT_PROVIDER: str = Field(default_factory=lambda: _env("STT_PROVIDER", "").lower())  # "" | none | openai_whisper
+    STT_API_KEY: str = Field(default_factory=lambda: _env("STT_API_KEY"))
+    AI_SUMMARY_PROVIDER: str = Field(default_factory=lambda: _env("AI_SUMMARY_PROVIDER", "").lower())  # "" | none | openai
+    AI_SUMMARY_API_KEY: str = Field(default_factory=lambda: _env("AI_SUMMARY_API_KEY"))
+
     TRANSLATION_PROVIDER: str = Field(default_factory=lambda: _env("TRANSLATION_PROVIDER", "local").lower())  # local | google
     TRANSLATION_API_KEY: str = Field(default_factory=lambda: _env("TRANSLATION_API_KEY"))
 
@@ -216,6 +243,33 @@ def validate_for_environment(s: Settings) -> List[str]:
                     errors.append(f"{provider}={selected} requires {key}")
     if s.SEED_DEMO_DATA and s.DATA_MODE == "live":
         errors.append("SEED_DEMO_DATA is not allowed with DATA_MODE=live")
+
+    # --- Telephony / IVR -------------------------------------------------------------------
+    if s.TELEPHONY_PROVIDER not in {"twilio", "mock"}:
+        errors.append("TELEPHONY_PROVIDER must be 'twilio' or 'mock'")
+    if s.DEMO_MODE and s.is_production:
+        errors.append("DEMO_MODE is forbidden in production")
+    if s.is_production:
+        if s.TELEPHONY_PROVIDER == "mock":
+            errors.append("Production requires TELEPHONY_PROVIDER=twilio (mock is for demo/tests only)")
+        if s.IVR_ENABLED:
+            for key in ("TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN", "TWILIO_PHONE_NUMBER", "PUBLIC_API_BASE_URL"):
+                if not getattr(s, key):
+                    errors.append(f"IVR_ENABLED in production requires {key}")
+            if not s.PUBLIC_API_BASE_URL.lower().startswith("https://"):
+                errors.append("PUBLIC_API_BASE_URL must be https:// in production (Twilio refuses plain-http webhooks)")
+            if not s.TWILIO_VALIDATE_WEBHOOK:
+                errors.append("Production requires TWILIO_VALIDATE_WEBHOOK=true")
+    elif s.IVR_ENABLED and s.TELEPHONY_PROVIDER == "twilio" and s.TWILIO_VALIDATE_WEBHOOK and not s.TWILIO_AUTH_TOKEN:
+        warnings.append("TWILIO_AUTH_TOKEN not set: Twilio webhook signature validation cannot run; inbound requests will be rejected until it is configured (or set TWILIO_VALIDATE_WEBHOOK=false for local development)")
+    if s.STT_PROVIDER not in {"", "none", "openai_whisper"}:
+        errors.append("STT_PROVIDER must be one of '', 'none', 'openai_whisper'")
+    if s.STT_PROVIDER == "openai_whisper" and not s.STT_API_KEY:
+        (errors if strict else warnings).append("STT_PROVIDER=openai_whisper requires STT_API_KEY")
+    if s.AI_SUMMARY_PROVIDER not in {"", "none", "openai"}:
+        errors.append("AI_SUMMARY_PROVIDER must be one of '', 'none', 'openai'")
+    if s.AI_SUMMARY_PROVIDER == "openai" and not s.AI_SUMMARY_API_KEY:
+        (errors if strict else warnings).append("AI_SUMMARY_PROVIDER=openai requires AI_SUMMARY_API_KEY")
 
     if errors:
         raise ConfigurationError("Invalid configuration:\n  - " + "\n  - ".join(errors))

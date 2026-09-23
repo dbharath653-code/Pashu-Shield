@@ -45,6 +45,11 @@ TEMPLATES: Dict[str, Dict[str, str]] = {
         "mr": "पशु-शील्ड: अहवाल {report_number} मिळाला. धोका: {risk}.",
     },
     "CASE_STATUS_UPDATED": {"en": "PASHU-SHIELD: Your case #{case_number} status changed to: {status}."},
+    "IVR_CALL_REQUEST": {
+        "en": "PASHU-SHIELD: An IVR farmer call ({call_id}) is being routed to you. Please answer if available.",
+        "hi": "पशु-शील्ड: एक IVR किसान कॉल ({call_id}) आपको भेजी जा रही है। कृपया उपलब्ध हों तो उत्तर दें।",
+        "mr": "पशु-शील्ड: एक IVR शेतकरी कॉल ({call_id}) तुम्हाला पाठवली जात आहे. कृपया उपलब्ध असाल तर उत्तर द्या.",
+    },
     "LAB_RESULT_READY": {"en": "PASHU-SHIELD: Lab result for sample #{sample_code} has been verified and released."},
     "VACCINATION_DUE": {"en": "PASHU-SHIELD: {disease} vaccination for animal {animal_id} is due on {due_date}."},
 }

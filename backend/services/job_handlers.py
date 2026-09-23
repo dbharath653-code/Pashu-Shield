@@ -119,3 +119,86 @@ async def provider_health(db: AsyncSession, payload: Dict[str, Any]):
         r = await weather_provider.get_district_weather(18.5204, 73.8567)
         return {"weather": r.get("data_status"), "environment": settings.ENVIRONMENT}
     return {"weather": "CONFIGURATION_REQUIRED"}
+
+
+@handler("call.process_recording")
+async def process_call_recording(db: AsyncSession, payload: Dict[str, Any]):
+    """Audio -> speech-to-text -> structured extraction -> AI/template summary.
+
+    Honesty rules:
+      * STT not configured => transcription_status stays NOT_CONFIGURED (no invented transcript),
+      * extraction only fills fields actually present in the transcript (rest stay None),
+      * the summary never claims a diagnosis.
+    """
+    import uuid as _uuid
+    from backend.models import CallSession, CallTranscript
+    from backend.services.call_events import publish_call_event
+    from backend.services.voice import extract_fields, generate_summary, transcribe_audio
+
+    session = await db.get(CallSession, payload.get("call_session_id"))
+    if session is None or not session.recording_url:
+        return {"skipped": True}
+    if session.transcription_status == "COMPLETED":
+        return {"skipped": True, "reason": "already processed"}
+
+    provider = get_provider_for(session)
+    try:
+        audio, content_type = await provider.download_recording(session.recording_url)
+    except Exception as e:
+        session.transcription_status = "FAILED"
+        session.last_error = f"recording_download:{type(e).__name__}"
+        await db.commit()
+        return {"status": "FAILED", "stage": "download"}
+
+    stt = await transcribe_audio(audio, filename=f"{session.id}.{'wav' if 'wav' in (content_type or '') else 'mp3'}",
+                                 content_type=content_type)
+    if stt["status"] == "NOT_CONFIGURED":
+        session.transcription_status = "NOT_CONFIGURED"
+        await db.commit()
+        # Still build a summary? No — without a transcript there is nothing to summarise
+        # beyond "recording available; transcription not configured".
+        return {"status": "NOT_CONFIGURED"}
+    if stt["status"] != "COMPLETED" or not stt.get("text"):
+        session.transcription_status = "FAILED"
+        await db.commit()
+        return {"status": "FAILED", "stage": "stt"}
+
+    text = stt["text"]
+    db.add(CallTranscript(
+        id=f"TRN-{_uuid.uuid4().hex[:10].upper()}", call_session_id=session.id,
+        speaker="MIXED",  # single-pass STT cannot attribute speakers honestly
+        text=text, start_time=0.0, confidence=None,
+        language=stt.get("language") or session.language, source="STT",
+    ))
+    fields = extract_fields(text)
+    summary = await generate_summary(fields, transcript=text)
+    session.ai_summary = summary["summary"]
+    session.transcription_status = "COMPLETED"
+    await db.commit()
+    await publish_call_event("call.transcript_updated", session, {"callSessionId": session.id})
+    await publish_call_event("call.summary_updated", session, {"provider": summary["provider"]})
+    return {"status": "COMPLETED", "summary_provider": summary["provider"]}
+
+
+def get_provider_for(session):
+    from backend.services.telephony import get_provider
+    return get_provider()
+
+
+@handler("call.cleanup_recordings")
+async def cleanup_call_recordings(db: AsyncSession, payload: Dict[str, Any]):
+    """Retention: clear private recording references older than VOICE_RECORDING_RETENTION_DAYS
+    (metadata, transcripts and summaries are retained; the URL can no longer be fetched)."""
+    from datetime import datetime, timedelta
+    from backend.models import CallSession
+    cutoff = datetime.utcnow() - timedelta(days=settings.VOICE_RECORDING_RETENTION_DAYS)
+    rows = (await db.execute(
+        select(CallSession).where(CallSession.recording_url.isnot(None),
+                                  CallSession.ended_at.isnot(None),
+                                  CallSession.ended_at < cutoff).limit(500))).scalars().all()
+    for s in rows:
+        s.recording_url = None
+        s.recording_sid = None
+        s.recording_status = "EXPIRED"
+    await db.commit()
+    return {"recordings_expired": len(rows)}

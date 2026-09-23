@@ -4,6 +4,7 @@ import type { VetCase } from "../../context/VetResponseContext";
 import OverviewTab from "./OverviewTab";
 import QueueTab from "./QueueTab";
 import CaseDetails from "./CaseDetails";
+import CallsTab from "./CallsTab";
 import { Plus, Wifi, WifiOff } from "lucide-react";
 
 function VetResponseContent() {
@@ -14,7 +15,7 @@ function VetResponseContent() {
     return <CaseDetails vetCase={selectedCase} onBack={() => setSelectedCase(null)} />;
   }
 
-  const tabs = ["Response Overview", "Response Queue", "Active Cases", "Emergency Cases", "Field Visits"];
+  const tabs = ["Response Overview", "Response Queue", "IVR & Calls", "Active Cases", "Emergency Cases", "Field Visits"];
   const isOffline = !navigator.onLine;
 
   return (
@@ -60,7 +61,8 @@ function VetResponseContent() {
       <div className="flex-1 overflow-y-auto">
         {activeTab === "Response Overview" && <OverviewTab />}
         {activeTab === "Response Queue" && <QueueTab onViewCase={setSelectedCase} />}
-        {activeTab !== "Response Overview" && activeTab !== "Response Queue" && (
+        {activeTab === "IVR & Calls" && <CallsTab />}
+        {activeTab !== "Response Overview" && activeTab !== "Response Queue" && activeTab !== "IVR & Calls" && (
            <div className="bg-white p-12 text-center rounded-xl border border-gray-200">
              <h3 className="text-lg font-medium text-gray-500">{activeTab} logic is implemented via Queue and Case Details workflows.</h3>
            </div>
