@@ -1,84 +1,98 @@
-version: "3.8"
+# Secrets come from .env (copy .env.example) — nothing sensitive is committed here.
+# `docker compose up` requires at least: POSTGRES_PASSWORD, JWT_SECRET, JWT_REFRESH_SECRET, CORS_ORIGINS.
+x-backend-env: &backend-env
+  ENVIRONMENT: ${ENVIRONMENT:-production}
+  DATA_MODE: ${DATA_MODE:-live}
+  DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-pashu_user}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-pashu_shield}
+  REDIS_URL: redis://redis:6379/0
+  RATE_LIMIT_BACKEND: redis
+  JOB_BACKEND: worker
+  JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET}
+  JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?set JWT_REFRESH_SECRET}
+  CORS_ORIGINS: ${CORS_ORIGINS:?set CORS_ORIGINS}
+  CLAMAV_HOST: clamav
+  SMS_PROVIDER: ${SMS_PROVIDER:-none}
+  SMS_API_KEY: ${SMS_API_KEY:-}
+  WHATSAPP_PROVIDER: ${WHATSAPP_PROVIDER:-none}
+  WHATSAPP_ACCESS_TOKEN: ${WHATSAPP_ACCESS_TOKEN:-}
+  WHATSAPP_PHONE_NUMBER_ID: ${WHATSAPP_PHONE_NUMBER_ID:-}
+  WHATSAPP_APP_SECRET: ${WHATSAPP_APP_SECRET:-}
+  WHATSAPP_VERIFY_TOKEN: ${WHATSAPP_VERIFY_TOKEN:-}
+  TRANSLATION_PROVIDER: ${TRANSLATION_PROVIDER:-local}
+  TRANSLATION_API_KEY: ${TRANSLATION_API_KEY:-}
+  ROUTING_PROVIDER: ${ROUTING_PROVIDER:-none}
+  OSRM_URL: ${OSRM_URL:-}
+  NADRES_API_URL: ${NADRES_API_URL:-}
+  NADRES_API_KEY: ${NADRES_API_KEY:-}
+  GOVERNMENT_API_URL: ${GOVERNMENT_API_URL:-}
+  GOVERNMENT_API_KEY: ${GOVERNMENT_API_KEY:-}
 
 services:
   postgres:
-    image: postgis/postgis:15-3.3
-    container_name: pashu_postgres
+    image: postgis/postgis:15-3.4
     environment:
-      POSTGRES_DB: pashu_shield
-      POSTGRES_USER: pashu_user
-      POSTGRES_PASSWORD: pashu_password
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./migrations/001_initial_schema.sql:/docker-entrypoint-initdb.d/01_schema.sql
+      POSTGRES_DB: ${POSTGRES_DB:-pashu_shield}
+      POSTGRES_USER: ${POSTGRES_USER:-pashu_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+    volumes: [postgres_data:/var/lib/postgresql/data]
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U pashu_user -d pashu_shield"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-pashu_user} -d ${POSTGRES_DB:-pashu_shield}"]
       interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 10
+    restart: unless-stopped
 
   redis:
     image: redis:7-alpine
-    container_name: pashu_redis
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes: [redis_data:/data]
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
+
+  clamav:
+    image: clamav/clamav:stable
+    restart: unless-stopped
+
+  migrate:
+    build: {context: ., dockerfile: Dockerfile.backend}
+    command: ["alembic", "upgrade", "head"]
+    environment: *backend-env
+    depends_on:
+      postgres: {condition: service_healthy}
+    restart: "no"
 
   backend:
-    build:
-      context: .
-      dockerfile: Dockerfile.backend
-    container_name: pashu_backend
-    environment:
-      DATABASE_URL: postgresql+asyncpg://pashu_user:pashu_password@postgres:5432/pashu_shield
-      REDIS_URL: redis://redis:6379/0
-      JWT_SECRET: pashu-shield-docker-prod-secret-2026
-      JWT_REFRESH_SECRET: pashu-shield-docker-refresh-secret-2026
-      SMS_PROVIDER: mock
-      WHATSAPP_PROVIDER: mock
-      TRANSLATION_PROVIDER: local
-    ports:
-      - "8000:8000"
+    build: {context: ., dockerfile: Dockerfile.backend}
+    environment: *backend-env
+    volumes: [uploads:/app/var/uploads]
+    ports: ["8000:8000"]
     depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+      migrate: {condition: service_completed_successfully}
+      redis: {condition: service_healthy}
     restart: unless-stopped
 
   worker:
-    build:
-      context: .
-      dockerfile: Dockerfile.backend
-    container_name: pashu_worker
-    command: ["python3", "-c", "import time; print('Pashu-Shield background ingestion worker started.'); time.sleep(999999)"]
-    environment:
-      DATABASE_URL: postgresql+asyncpg://pashu_user:pashu_password@postgres:5432/pashu_shield
-      REDIS_URL: redis://redis:6379/0
+    build: {context: ., dockerfile: Dockerfile.backend}
+    command: ["python", "-m", "backend.worker"]
+    environment: *backend-env
+    volumes: [uploads:/app/var/uploads]
     depends_on:
-      backend:
-        condition: service_started
+      migrate: {condition: service_completed_successfully}
+    healthcheck:
+      disable: true
     restart: unless-stopped
 
   frontend:
-    build:
-      context: .
-      dockerfile: Dockerfile.frontend
-    container_name: pashu_frontend
-    ports:
-      - "80:80"
-    depends_on:
-      - backend
+    build: {context: ., dockerfile: Dockerfile.frontend}
+    ports: ["80:80"]
+    depends_on: [backend]
     restart: unless-stopped
 
 volumes:
   postgres_data:
   redis_data:
+  uploads:

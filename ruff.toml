@@ -1,0 +1,7 @@
+line-length = 200
+target-version = "py311"
+extend-exclude = ["migrations/versions", "node_modules"]
+
+[lint]
+select = ["E", "F", "W", "B"]
+ignore = ["E501", "B008", "E731", "B904"]

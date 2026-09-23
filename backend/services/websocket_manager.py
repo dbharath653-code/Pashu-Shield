@@ -1,112 +1,116 @@
-import json
+"""Authenticated WebSocket connection manager.
+
+Identity (user id, role, district, block, permissions) is derived exclusively from a verified
+access token — never from client-supplied query parameters. Each event is delivered only to
+connections allowed to see it:
+  * explicit recipients (event.user_ids) and the record owner always receive it;
+  * officers/vets receive it when the event's district/block is within their jurisdiction;
+  * farmers receive only events addressed to them.
+"""
+from __future__ import annotations
+
+import asyncio
 import logging
-from typing import Dict, List, Set, Any
+from dataclasses import dataclass, field
+from datetime import datetime
+from typing import Any, Dict, Optional, Set
+
 from fastapi import WebSocket
 
-logger = logging.getLogger("websocket_manager")
+from backend.models import UserRole
+
+logger = logging.getLogger("pashu_shield.ws")
+MAX_CONNECTIONS_PER_USER = 5
+
+
+@dataclass(eq=False)
+class Connection:
+    ws: WebSocket
+    user_id: str
+    role: str
+    district: Optional[str]
+    taluka: Optional[str]
+    subscriptions: Set[str] = field(default_factory=lambda: {"*"})
+    last_seen: datetime = field(default_factory=datetime.utcnow)
+
 
 class ConnectionManager:
-    def __init__(self):
-        # Map of active connections: connection -> metadata
-        self.active_connections: Set[WebSocket] = set()
-        # User id to websockets mapping
-        self.user_connections: Dict[str, Set[WebSocket]] = {}
-        # Role to websockets mapping
-        self.role_connections: Dict[str, Set[WebSocket]] = {}
-        # District to websockets mapping
-        self.district_connections: Dict[str, Set[WebSocket]] = {}
+    def __init__(self) -> None:
+        self.connections: Set[Connection] = set()
+        self._lock = asyncio.Lock()
 
-    async def connect(self, websocket: WebSocket, user_id: str = "anonymous", role: str = "GUEST", district: str = "ALL"):
-        await websocket.accept()
-        self.active_connections.add(websocket)
-        
-        if user_id not in self.user_connections:
-            self.user_connections[user_id] = set()
-        self.user_connections[user_id].add(websocket)
-        
-        if role not in self.role_connections:
-            self.role_connections[role] = set()
-        self.role_connections[role].add(websocket)
-        
-        if district not in self.district_connections:
-            self.district_connections[district] = set()
-        self.district_connections[district].add(websocket)
-        
-        # Send initial connection ack
-        await websocket.send_json({
-            "type": "CONNECTION_ESTABLISHED",
-            "status": "CONNECTED",
-            "user_id": user_id,
-            "role": role,
-            "district": district
-        })
+    @property
+    def active_connections(self):  # backward-compatible accessor
+        return {c.ws for c in self.connections}
 
-    def disconnect(self, websocket: WebSocket):
-        self.active_connections.discard(websocket)
-        
-        # Remove from user connections
-        for u_id in list(self.user_connections.keys()):
-            self.user_connections[u_id].discard(websocket)
-            if not self.user_connections[u_id]:
-                del self.user_connections[u_id]
-                
-        # Remove from role connections
-        for r in list(self.role_connections.keys()):
-            self.role_connections[r].discard(websocket)
-            if not self.role_connections[r]:
-                del self.role_connections[r]
-                
-        # Remove from district connections
-        for d in list(self.district_connections.keys()):
-            self.district_connections[d].discard(websocket)
-            if not self.district_connections[d]:
-                del self.district_connections[d]
+    async def register(self, ws: WebSocket, user) -> Connection:
+        async with self._lock:
+            mine = [c for c in self.connections if c.user_id == user.id]
+            if len(mine) >= MAX_CONNECTIONS_PER_USER:
+                oldest = min(mine, key=lambda c: c.last_seen)
+                self.connections.discard(oldest)
+                try:
+                    await oldest.ws.close(code=4008)
+                except Exception:
+                    pass
+            conn = Connection(ws=ws, user_id=user.id, role=user.role, district=user.district, taluka=user.taluka)
+            self.connections.add(conn)
+        await ws.send_json({"type": "CONNECTION_ESTABLISHED", "status": "CONNECTED", "user_id": user.id, "role": user.role, "district": user.district})
+        return conn
 
-    async def broadcast(self, message: Dict[str, Any]):
-        """Broadcast event to all connected clients."""
-        dead_connections = []
-        for connection in self.active_connections:
+    def disconnect(self, target) -> None:
+        for c in list(self.connections):
+            if c is target or c.ws is target:
+                self.connections.discard(c)
+
+    @staticmethod
+    def _can_receive(conn: Connection, ev) -> bool:
+        if ev.name.split(".")[0] not in conn.subscriptions and "*" not in conn.subscriptions:
+            return False
+        if conn.user_id in (ev.user_ids or []) or (ev.owner_id and conn.user_id == ev.owner_id):
+            return True
+        if ev.roles is not None and conn.role not in ev.roles and conn.role != UserRole.SYSTEM_ADMIN.value:
+            return False
+        role = conn.role
+        if role in (UserRole.SYSTEM_ADMIN.value, UserRole.STATE_OFFICER.value):
+            return True
+        if role == UserRole.FARMER.value:
+            return False
+        if role in (UserRole.LAB_TECHNICIAN.value, UserRole.LAB_ADMIN.value):
+            return ev.name.startswith(("sample.", "lab."))
+        if not ev.district:
+            return False
+        if (conn.district or "").lower() != ev.district.lower():
+            return False
+        if role == UserRole.BLOCK_OFFICER.value and conn.taluka and ev.taluka and conn.taluka.lower() != ev.taluka.lower():
+            return False
+        return True
+
+    async def publish(self, ev) -> int:
+        msg = ev.message()
+        sent, dead = 0, []
+        for conn in list(self.connections):
+            if not self._can_receive(conn, ev):
+                continue
             try:
-                await connection.send_json(message)
+                await conn.ws.send_json(msg)
+                sent += 1
             except Exception:
-                dead_connections.append(connection)
-        for dc in dead_connections:
-            self.disconnect(dc)
+                dead.append(conn)
+        for d in dead:
+            self.disconnect(d)
+        return sent
 
-    async def send_to_user(self, user_id: str, message: Dict[str, Any]):
-        """Send event to a specific user's active devices."""
-        if user_id in self.user_connections:
-            dead_connections = []
-            for connection in self.user_connections[user_id]:
-                try:
-                    await connection.send_json(message)
-                except Exception:
-                    dead_connections.append(connection)
-            for dc in dead_connections:
-                self.disconnect(dc)
+    # Legacy helpers retained for any remaining call sites; they route through publish rules.
+    async def broadcast(self, message: Dict[str, Any]) -> None:
+        logger.warning("ws_manager.broadcast is deprecated; message dropped unless sent via Event", extra={"fields": {"type": message.get("type")}})
 
-    async def send_to_role(self, role: str, message: Dict[str, Any]):
-        """Send event to all users with a specific role."""
-        if role in self.role_connections:
-            dead_connections = []
-            for connection in self.role_connections[role]:
-                try:
-                    await connection.send_json(message)
-                except Exception:
-                    dead_connections.append(connection)
-            for dc in dead_connections:
-                self.disconnect(dc)
+    async def send_to_user(self, user_id: str, message: Dict[str, Any]) -> None:
+        for conn in [c for c in self.connections if c.user_id == user_id]:
+            try:
+                await conn.ws.send_json(message)
+            except Exception:
+                self.disconnect(conn)
 
-    async def send_to_district(self, district: str, message: Dict[str, Any]):
-        """Send event to users in a specific district."""
-        if district in self.district_connections:
-            dead_connections = []
-            for connection in self.district_connections[district]:
-                try:
-                    await connection.send_json(message)
-                except Exception:
-                    dead_connections.append(connection)
-            for dc in dead_connections:
-                self.disconnect(dc)
 
 ws_manager = ConnectionManager()

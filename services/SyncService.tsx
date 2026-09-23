@@ -123,8 +123,8 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 4000);
-      const res = await fetch("/api/v1/sync/pull", {
-        method: "HEAD",
+      const res = await fetch("/health", {
+        method: "GET",
         signal: controller.signal
       }).catch(() => null);
       clearTimeout(timeoutId);
@@ -453,7 +453,9 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
       store: item.store,
       id: item.id,
       operation: item.operation || "CREATE",
-      data: item.data
+      data: item.data,
+      base_version: (item.data as any)?.version ?? undefined,
+      device_id: localStorage.getItem("pashu_device_id") || undefined
     }));
 
     try {
@@ -491,21 +493,25 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
             item.lastError = processed.message || "Server detected data conflict.";
             item.lastAttemptAt = new Date().toISOString();
             await dbService.save("sync_queue", item);
-          } else if (processed?.status === "ERROR") {
+          } else if (processed?.status === "REJECTED" && !processed.retryable) {
+            // Permanent validation failure: keep for user review, do not retry forever.
+            item.status = "Conflict";
+            item.lastError = `Rejected by server: ${processed.error || "validation failed"}`;
+            item.lastAttemptAt = new Date().toISOString();
+            await dbService.save("sync_queue", item);
+          } else if (processed?.status === "ERROR" || processed?.status === "REJECTED") {
             item.attempts += 1;
             item.status = "Failed";
             item.lastError = processed.error || "Server error";
             item.lastAttemptAt = new Date().toISOString();
             await dbService.save("sync_queue", item);
           } else {
-            // General success fallback if processed item list was not detailed
-            item.status = "Synced";
+            // No per-item confirmation from the server: never assume success; retry later.
+            item.attempts += 1;
+            item.status = "Failed";
+            item.lastError = "No confirmation from server for this item";
             item.lastAttemptAt = new Date().toISOString();
             await dbService.save("sync_queue", item);
-            if (item.store && item.data) {
-              const updatedRecord = { ...item.data, syncStatus: "Synced" };
-              await dbService.save(item.store, updatedRecord).catch(() => {});
-            }
           }
         }
 

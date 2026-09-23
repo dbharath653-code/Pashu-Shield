@@ -34,6 +34,10 @@ export interface RiskPrediction {
   recommended_actions: string[];
   model_version: string;
   source: PredictionSource;
+  /** Server-reported validation status, e.g. NOT_VALIDATED_SYNTHETIC. Decision support only — never a diagnosis. */
+  validation_status?: string;
+  is_synthetic_training?: boolean;
+  disclaimer?: string;
 }
 
 export interface OutbreakDetection {
@@ -205,8 +209,10 @@ const localEngine = {
       prediction_horizon_days: Number.isNaN(horizon) ? 14 : horizon,
       top_risk_factors: factors,
       recommended_actions: recommendedActions(input, level),
-      model_version: 'local-v1.0',
+      model_version: 'local-heuristic-v1.0',
       source: 'local',
+      validation_status: 'HEURISTIC_NOT_VALIDATED',
+      disclaimer: 'On-device rule-based estimate (offline fallback). Not a diagnosis; confirm with a veterinarian.',
     };
   },
 

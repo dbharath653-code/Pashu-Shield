@@ -132,6 +132,11 @@ export default function AlertDetailModal({ alert, onClose }: Props) {
           <div className="flex-1 flex flex-col min-h-[300px]">
             <h3 className="text-sm font-bold text-gray-500 uppercase mb-3 tracking-wider">Geospatial Context</h3>
             <div className="flex-1 rounded-xl overflow-hidden border border-gray-200 shadow-sm relative">
+              {!(Number.isFinite(alert.latitude) && Number.isFinite(alert.longitude)) ? (
+                <div className="absolute inset-0 flex items-center justify-center bg-gray-50 text-xs text-gray-500 p-4 text-center">
+                  LOCATION_UNAVAILABLE — this alert has no verified coordinates.
+                </div>
+              ) : (
               <MapContainer center={[alert.latitude, alert.longitude]} zoom={12} className="w-full h-full absolute inset-0">
                 <TileLayer
                   attribution="&copy; OpenStreetMap contributors"
@@ -153,6 +158,7 @@ export default function AlertDetailModal({ alert, onClose }: Props) {
                   }} 
                 />
               </MapContainer>
+              )}
             </div>
           </div>
 

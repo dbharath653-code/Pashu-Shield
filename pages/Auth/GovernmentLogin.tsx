@@ -36,14 +36,12 @@ export default function GovernmentLogin() {
   };
 
   const handlePreFillStateOfficer = () => {
-    setIdentifier("state@pashushield.gov.in");
-    setPassword("Govt@123");
+    setIdentifier("state.demo@pashushield.local");
     setErrorMsg(null);
   };
 
   const handlePreFillAdmin = () => {
-    setIdentifier("admin@pashushield.gov.in");
-    setPassword("Govt@123");
+    setIdentifier("admin.demo@pashushield.local");
     setErrorMsg(null);
   };
 
@@ -101,7 +99,7 @@ export default function GovernmentLogin() {
                 </button>
               </div>
               <p className="text-[11px] font-mono text-amber-300">
-                Email: <b>state@pashushield.gov.in</b> | Pass: <b>Govt@123</b>
+                Email: <b>state.demo@pashushield.local</b> | Password: <i>demo password configured by the server administrator (DEMO_USER_PASSWORD)</i>
               </p>
               <p className="text-[10px] text-slate-400">
                 Dr. V. K. Chavan (Joint Director, Animal Husbandry)
@@ -120,7 +118,7 @@ export default function GovernmentLogin() {
                 </button>
               </div>
               <p className="text-[11px] font-mono text-amber-300">
-                Email: <b>admin@pashushield.gov.in</b> | Pass: <b>Govt@123</b>
+                Email: <b>admin.demo@pashushield.local</b> | Password: <i>demo password configured by the server administrator (DEMO_USER_PASSWORD)</i>
               </p>
             </div>
           </div>
@@ -135,7 +133,7 @@ export default function GovernmentLogin() {
                 required
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
-                placeholder="state@pashushield.gov.in or admin@pashushield.gov.in"
+                placeholder="state.demo@pashushield.local or admin.demo@pashushield.local"
                 className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500"
               />
             </div>

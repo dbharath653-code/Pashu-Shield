@@ -137,17 +137,29 @@ export default function PersistentVoiceAssistant() {
     try {
       if (pendingAction.intent === "REPORT_DISEASE") {
         const payload = pendingAction.action_payload;
+        const district = payload.district || user?.district;
+        const village = payload.village || user?.village;
+        if (!district || !village) {
+          // Never invent a location: send the user to the form to enter it.
+          const msg = language === "mr" ? "कृपया अहवाल फॉर्ममध्ये जिल्हा व गाव भरा." : "Please enter your district and village in the report form.";
+          setAssistantReply(msg);
+          speak(msg, language);
+          setPendingAction(null);
+          navigate("/reporting");
+          return;
+        }
         const res = await fetch("/api/v1/reports", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", "Idempotency-Key": `voice-${pendingAction.intent}-${transcript}`.slice(0, 120) },
           body: JSON.stringify({
             species: payload.species || "Cattle",
             number_affected: payload.number_affected || 1,
             number_dead: payload.number_dead || 0,
-            symptoms: payload.symptoms || ["Fever", "Loss of appetite"],
-            district: payload.district || user?.district || "Pune",
-            village: payload.village || user?.village || "Shirur",
-            suspected_disease: payload.suspected_disease || "Syndromic Alert",
+            symptoms: payload.symptoms || [],
+            district,
+            village,
+            suspected_disease: payload.suspected_disease || "Unknown",
+            channel: "VOICE",
             notes: `Voice reported: ${transcript}`
           })
         });
@@ -156,8 +168,8 @@ export default function PersistentVoiceAssistant() {
           const result = await res.json();
           const successMsg =
             language === "mr"
-              ? `अहवाल यशस्वीपणे दाखल झाला! केस क्रमांक ${result.assignedCase?.caseNumber || "नोंदणीकृत"}. पशुवैद्यक युनिटला कळवले आहे.`
-              : `Report successfully filed! Case #${result.assignedCase?.caseNumber || "Registered"}. Emergency veterinary dispatched.`;
+              ? `अहवाल दाखल झाला${result.assignedCase?.caseNumber ? ` (केस ${result.assignedCase.caseNumber})` : ""}. पशुवैद्यकीय तपासणीसाठी रांगेत आहे.`
+              : `Report submitted${result.assignedCase?.caseNumber ? ` (Case #${result.assignedCase.caseNumber})` : ""}. ${result.assignedCase?.assignedVet ? "A veterinarian has been assigned." : "It is queued for veterinary triage."}`;
           setAssistantReply(successMsg);
           speak(successMsg, language);
           setPendingAction(null);
@@ -165,12 +177,17 @@ export default function PersistentVoiceAssistant() {
             navigate("/reporting");
             setIsOpen(false);
           }, 3000);
+        } else {
+          const err = await res.json().catch(() => null);
+          const msg = `Report not submitted: ${err?.error?.message || err?.detail?.message || res.status}`;
+          setAssistantReply(msg);
+          speak(msg, language);
         }
       } else if (pendingAction.intent === "REQUEST_VETERINARIAN") {
         const confirmMsg =
           language === "mr"
-            ? "तात्काळ मोबाइल व्हेटर्नरी युनिट (1962) अलर्ट पाठवला गेला आहे."
-            : "Emergency Mobile Veterinary Unit (1962) has been notified for your area.";
+            ? "कृपया 1962 वर कॉल करा किंवा पशुवैद्यकीय विनंती फॉर्म वापरा."
+            : "Please call the 1962 helpline or submit a disease report so a veterinarian can be dispatched.";
         setAssistantReply(confirmMsg);
         speak(confirmMsg, language);
         setPendingAction(null);

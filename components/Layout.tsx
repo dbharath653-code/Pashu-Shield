@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { Outlet } from "react-router-dom";
+import { Navigate, Outlet, useLocation } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 import Sidebar from "./Sidebar";
 import Topbar from "./Topbar";
 import PersistentVoiceAssistant from "./PersistentVoiceAssistant";
@@ -7,6 +8,8 @@ import SyncModal from "./SyncModal";
 
 export default function Layout() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { isAuthenticated } = useAuth();
+  const location = useLocation();
 
   // Close mobile drawer on Escape key
   useEffect(() => {
@@ -30,6 +33,11 @@ export default function Layout() {
       document.body.style.overflow = "";
     };
   }, [mobileMenuOpen]);
+
+  // Application screens require a signed-in user (server enforces this too).
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+  }
 
   return (
     <div className="flex min-h-screen bg-bgLight antialiased font-sans text-gray-900">

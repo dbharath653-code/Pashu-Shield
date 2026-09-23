@@ -70,6 +70,10 @@ window.fetch = async (input) => {
   return new Response('Not found', { status: 404, headers: { 'content-type': 'text/plain' } });
 };
 
+// Simulate a previously signed-in farmer session (app screens require auth).
+window.localStorage.setItem('auth_token', 'smoke-test-token');
+window.localStorage.setItem('auth_user', JSON.stringify({ id: 'SMOKE-FARMER', email: 'smoke@example.test', full_name: 'Smoke Test Farmer', role: 'FARMER', district: 'Pune', village: 'Shirur' }));
+
 // Mirror the DOM globals onto globalThis so the ESM bundle can run.
 const globals = ['window', 'document', 'navigator', 'location', 'history', 'localStorage', 'sessionStorage', 'Worker',
   'MediaRecorder', 'speechSynthesis', 'SpeechSynthesisUtterance',

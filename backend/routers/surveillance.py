@@ -1,140 +1,123 @@
-from datetime import datetime
+"""Surveillance dashboard data. Every figure is computed from stored records; nothing is
+floored, padded or hardcoded. Each block carries provenance (source, evidence level,
+last updated) and demo records are excluded unless DATA_MODE permits them."""
+from datetime import datetime, timedelta
 from typing import Optional
-from fastapi import APIRouter, Depends
+
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+
+from backend.config import settings
 from backend.database import get_db
-from backend.models import DiseaseReport, VeterinaryCase, LabSample, VaccinationRecord, OutbreakEvent
+from backend.models import (DataSourceStatus, DiseaseReport, ExternalDataRecord, LabSample, OutbreakEvent, SurveillanceObservation, User,
+                            VaccinationRecord, VeterinaryCase)
+from backend.security import Permission, require_permission, resolve_district_filter
+from backend.services.districts import MAHARASHTRA_DISTRICTS
 
 router = APIRouter(prefix="/surveillance", tags=["Maharashtra Disease Surveillance"])
 
-MAHARASHTRA_DISTRICTS = [
-    {"name": "Ahmednagar", "division": "Nashik", "population": 4210000, "lat": 19.0948, "lng": 74.7480},
-    {"name": "Akola", "division": "Amravati", "population": 1813906, "lat": 20.7002, "lng": 77.0082},
-    {"name": "Amravati", "division": "Amravati", "population": 2888445, "lat": 20.9374, "lng": 77.7796},
-    {"name": "Chhatrapati Sambhajinagar", "division": "Marathwada", "population": 3701282, "lat": 19.8762, "lng": 75.3433},
-    {"name": "Beed", "division": "Marathwada", "population": 2585049, "lat": 18.9891, "lng": 75.7601},
-    {"name": "Bhandara", "division": "Nagpur", "population": 1200334, "lat": 21.1667, "lng": 79.6500},
-    {"name": "Buldhana", "division": "Amravati", "population": 2586258, "lat": 20.5317, "lng": 76.1843},
-    {"name": "Chandrapur", "division": "Nagpur", "population": 2204307, "lat": 19.9615, "lng": 79.2961},
-    {"name": "Dhule", "division": "Nashik", "population": 2050862, "lat": 20.9042, "lng": 74.7749},
-    {"name": "Gadchiroli", "division": "Nagpur", "population": 1072942, "lat": 20.1849, "lng": 80.0029},
-    {"name": "Gondia", "division": "Nagpur", "population": 1322507, "lat": 21.4598, "lng": 80.1961},
-    {"name": "Hingoli", "division": "Marathwada", "population": 1177345, "lat": 19.7198, "lng": 77.1471},
-    {"name": "Jalgaon", "division": "Nashik", "population": 4229917, "lat": 21.0077, "lng": 75.5626},
-    {"name": "Jalna", "division": "Marathwada", "population": 1959046, "lat": 19.8410, "lng": 75.8864},
-    {"name": "Kolhapur", "division": "Pune", "population": 3876001, "lat": 16.7050, "lng": 74.2433},
-    {"name": "Latur", "division": "Marathwada", "population": 2455543, "lat": 18.4088, "lng": 76.5604},
-    {"name": "Mumbai City", "division": "Konkan", "population": 3085411, "lat": 18.9388, "lng": 72.8354},
-    {"name": "Mumbai Suburban", "division": "Konkan", "population": 9356962, "lat": 19.0760, "lng": 72.8777},
-    {"name": "Nagpur", "division": "Nagpur", "population": 4653570, "lat": 21.1458, "lng": 79.0882},
-    {"name": "Nanded", "division": "Marathwada", "population": 3361292, "lat": 19.1383, "lng": 77.3210},
-    {"name": "Nandurbar", "division": "Nashik", "population": 1648295, "lat": 21.3745, "lng": 74.2405},
-    {"name": "Nashik", "division": "Nashik", "population": 6107187, "lat": 20.0110, "lng": 73.7903},
-    {"name": "Dharashiv", "division": "Marathwada", "population": 1657576, "lat": 18.1861, "lng": 76.0419},
-    {"name": "Palghar", "division": "Konkan", "population": 2990116, "lat": 19.6967, "lng": 72.7655},
-    {"name": "Parbhani", "division": "Marathwada", "population": 1836086, "lat": 19.2608, "lng": 76.7748},
-    {"name": "Pune", "division": "Pune", "population": 9429408, "lat": 18.5204, "lng": 73.8567},
-    {"name": "Raigad", "division": "Konkan", "population": 2634200, "lat": 18.5158, "lng": 73.1822},
-    {"name": "Ratnagiri", "division": "Konkan", "population": 1615069, "lat": 16.9902, "lng": 73.3120},
-    {"name": "Sangli", "division": "Pune", "population": 2822143, "lat": 16.8524, "lng": 74.5815},
-    {"name": "Satara", "division": "Pune", "population": 3003741, "lat": 17.6805, "lng": 74.0183},
-    {"name": "Sindhudurg", "division": "Konkan", "population": 849651, "lat": 16.1180, "lng": 73.6980},
-    {"name": "Solapur", "division": "Pune", "population": 4317756, "lat": 17.6599, "lng": 75.9064},
-    {"name": "Thane", "division": "Konkan", "population": 8070032, "lat": 19.2183, "lng": 72.9781},
-    {"name": "Wardha", "division": "Nagpur", "population": 1300774, "lat": 20.7453, "lng": 78.6022},
-    {"name": "Washim", "division": "Amravati", "population": 1197160, "lat": 20.1110, "lng": 77.1350},
-    {"name": "Yavatmal", "division": "Amravati", "population": 2772348, "lat": 20.3888, "lng": 78.1204}
-]
+OPEN_CASE = ("RESOLVED", "CLOSED", "REJECTED")
+
+
+def _demo_filter(col):
+    return True if settings.DATA_MODE != "live" else col.is_(False)
+
+
+def _scoped(stmt, model, district):
+    stmt = stmt.where(_demo_filter(model.is_demo))
+    if district:
+        stmt = stmt.where(model.district == district)
+    return stmt
+
 
 @router.get("/overview")
-async def get_surveillance_overview(db: AsyncSession = Depends(get_db)):
-    # Query database live counts
-    report_count = (await db.execute(select(func.count(DiseaseReport.id)))).scalar() or 0
-    active_cases_count = (await db.execute(
-        select(func.count(VeterinaryCase.id)).where(VeterinaryCase.status.notin_(["RESOLVED", "CLOSED", "Resolved", "Closed"]))
-    )).scalar() or 0
-    
-    dead_count = (await db.execute(select(func.sum(DiseaseReport.number_dead)))).scalar() or 0
-    affected_count = (await db.execute(select(func.sum(DiseaseReport.number_affected)))).scalar() or 0
-    
-    pending_lab = (await db.execute(
-        select(func.count(LabSample.id)).where(LabSample.status != "VERIFIED")
-    )).scalar() or 0
-    
-    active_outbreaks = (await db.execute(
-        select(func.count(OutbreakEvent.id)).where(OutbreakEvent.status == "Active")
-    )).scalar() or 3
+async def get_surveillance_overview(district: Optional[str] = None, db: AsyncSession = Depends(get_db),
+                                    current_user: User = Depends(require_permission(Permission.SURVEILLANCE_VIEW))):
+    d = resolve_district_filter(current_user, district)
+    since = datetime.utcnow() - timedelta(days=30)
+    q = lambda s, m: _scoped(s, m, d)  # noqa: E731
+    reports_30d = (await db.execute(q(select(func.count(DiseaseReport.id)).where(DiseaseReport.created_at >= since, DiseaseReport.deleted_at.is_(None)), DiseaseReport))).scalar() or 0
+    verified_30d = (await db.execute(q(select(func.count(DiseaseReport.id)).where(DiseaseReport.created_at >= since, DiseaseReport.verification_status.in_(["VERIFIED", "LAB_CONFIRMED"])), DiseaseReport))).scalar() or 0
+    active_cases = (await db.execute(q(select(func.count(VeterinaryCase.id)).where(VeterinaryCase.status.notin_(OPEN_CASE), VeterinaryCase.deleted_at.is_(None)), VeterinaryCase))).scalar() or 0
+    affected = (await db.execute(q(select(func.coalesce(func.sum(DiseaseReport.number_affected), 0)).where(DiseaseReport.created_at >= since), DiseaseReport))).scalar() or 0
+    dead = (await db.execute(q(select(func.coalesce(func.sum(DiseaseReport.number_dead), 0)).where(DiseaseReport.created_at >= since), DiseaseReport))).scalar() or 0
+    pending_lab = (await db.execute(q(select(func.count(LabSample.id)).where(LabSample.status.notin_(["VERIFIED", "RELEASED", "CLOSED", "REJECTED"])), LabSample))).scalar() or 0
+    outbreaks = (await db.execute(q(select(func.count(OutbreakEvent.id)).where(OutbreakEvent.status == "Active"), OutbreakEvent))).scalar() or 0
+    vacc_30d = (await db.execute(q(select(func.count(VaccinationRecord.id)).where(VaccinationRecord.vaccination_date >= since), VaccinationRecord))).scalar() or 0
+    gov_obs = (await db.execute(q(select(func.coalesce(func.sum(SurveillanceObservation.case_count), 0)).where(SurveillanceObservation.source_type == "GOVERNMENT", SurveillanceObservation.observed_at >= since), SurveillanceObservation))).scalar()
+    gov_status = await db.get(DataSourceStatus, "GOVT_SURVEILLANCE")
+    census = (await db.execute(select(ExternalDataRecord).where(ExternalDataRecord.provider == "DAHD_CENSUS", ExternalDataRecord.external_id == "__state__").order_by(ExternalDataRecord.retrieved_at.desc()).limit(1))).scalars().first()
+    platform = "PLATFORM_RECORDS (field reports; mostly unverified)"
+    kpis = [
+        {"label": "Reports (30 days)", "value": reports_30d, "provenance": platform, "evidence": "REPORTED", "status": "warning" if reports_30d else "neutral"},
+        {"label": "Verified / Lab-confirmed Reports (30 days)", "value": verified_30d, "provenance": "PLATFORM_RECORDS", "evidence": "VETERINARIAN_VERIFIED+", "status": "danger" if verified_30d else "neutral"},
+        {"label": "Active Veterinary Cases", "value": active_cases, "provenance": "PLATFORM_RECORDS", "status": "neutral"},
+        {"label": "Active Outbreak Events", "value": outbreaks, "provenance": "PLATFORM_RECORDS (officer-declared)", "status": "danger" if outbreaks else "success"},
+        {"label": "Animals Affected (30 days, reported)", "value": int(affected), "provenance": platform, "evidence": "REPORTED", "status": "danger" if affected else "neutral"},
+        {"label": "Reported Mortality (30 days)", "value": int(dead), "provenance": platform, "evidence": "REPORTED", "status": "danger" if dead else "neutral"},
+        {"label": "Pending Lab Samples", "value": pending_lab, "provenance": "PLATFORM_RECORDS", "status": "warning" if pending_lab else "neutral"},
+        {"label": "Vaccinations Recorded (30 days)", "value": vacc_30d, "provenance": "PLATFORM_RECORDS", "status": "success"},
+        {"label": "Government-reported Cases (30 days)", "value": int(gov_obs) if gov_status and gov_status.state == "LIVE" else None,
+         "provenance": f"GOVERNMENT FEED — {gov_status.state if gov_status else 'CONFIGURATION_REQUIRED'}", "status": "neutral"},
+        {"label": "Total Livestock Population", "value": (census.payload or {}).get("total_livestock") if census else None,
+         "provenance": f"HISTORICAL (DAHD Livestock Census {(census.payload or {}).get('reference_year')})" if census else "NOT_IMPORTED", "status": "neutral"},
+    ]
+    sources = (await db.execute(select(DataSourceStatus))).scalars().all()
+    return {"kpis": kpis, "meta": {
+        "state": "Maharashtra", "district": d, "window_days": 30, "last_updated": datetime.utcnow().isoformat(),
+        "data_mode": settings.DATA_MODE, "includes_demo_data": settings.DATA_MODE != "live",
+        "data_sources": [{"name": "Pashu-Shield field reports", "status": "LIVE"}] + [{"name": s.provider, "status": s.state, "last_success_at": s.last_success_at.isoformat() if s.last_success_at else None} for s in sources],
+    }}
 
-    return {
-        "kpis": [
-            {"label": "Active Reports", "value": max(report_count, 14), "provenance": "LIVE", "status": "warning", "trend": "+4.2%"},
-            {"label": "Active Veterinary Cases", "value": max(active_cases_count, 8), "provenance": "LIVE", "status": "neutral", "trend": "+2"},
-            {"label": "Active Outbreak Clusters", "value": active_outbreaks, "provenance": "LIVE", "status": "danger", "trend": "+1"},
-            {"label": "Total Animals Affected", "value": max(affected_count, 142), "provenance": "LIVE", "status": "danger", "trend": "+15"},
-            {"label": "Reported Mortality", "value": max(dead_count, 3), "provenance": "LIVE", "status": "danger", "trend": "0"},
-            {"label": "Pending Lab Samples", "value": max(pending_lab, 11), "provenance": "LIVE", "status": "warning", "trend": "-2"},
-            {"label": "State Vaccination Coverage", "value": "78.1%", "provenance": "HISTORICAL (NADCP Sero-monitoring 2025)", "status": "success", "trend": "+2.4%"},
-            {"label": "Total Livestock Population", "value": "33.0 M", "provenance": "HISTORICAL (20th Census, DAHD)", "status": "neutral", "trend": "Census 2019"}
-        ],
-        "meta": {
-            "state": "Maharashtra",
-            "last_updated": datetime.utcnow().isoformat(),
-            "data_sources": [
-                {"name": "Pashu-Shield Real-Time Field Stream", "status": "LIVE"},
-                {"name": "DAHD 20th Livestock Census", "status": "HISTORICAL"},
-                {"name": "NADCP Post-Vaccination Sero-Monitoring", "status": "PUBLISHED_BASELINE"}
-            ]
-        }
-    }
 
 @router.get("/districts")
-async def get_district_surveillance(db: AsyncSession = Depends(get_db)):
-    # Build 36-district surveillance records
-    district_data = []
-    for d in MAHARASHTRA_DISTRICTS:
-        # Check active cases in DB
-        stmt = select(func.count(DiseaseReport.id)).where(DiseaseReport.district == d["name"])
-        rep_count = (await db.execute(stmt)).scalar() or 0
-        
-        # Risk level determination based on counts
-        if d["name"] in ["Pune", "Satara", "Jalgaon", "Nashik"]:
-            risk = "HIGH"
-            cases = 42 + rep_count
-            trend = "up"
-        elif d["name"] in ["Kolhapur", "Solapur", "Nanded", "Amravati"]:
-            risk = "MEDIUM"
-            cases = 18 + rep_count
-            trend = "flat"
-        else:
-            risk = "LOW"
-            cases = max(2, rep_count)
-            trend = "down"
-            
-        district_data.append({
-            "district": d["name"],
-            "division": d["division"],
-            "totalCases": cases,
-            "activeCases": int(cases * 0.4),
-            "recovered": int(cases * 0.55),
-            "mortality": 1 if risk == "HIGH" else 0,
-            "vaccinationCoverage": 82.5 if risk == "LOW" else (76.0 if risk == "MEDIUM" else 68.0),
-            "riskLevel": risk,
-            "trend": trend,
-            "lat": d["lat"],
-            "lng": d["lng"],
-            "provenance": "LIVE + HISTORICAL BASELINE"
-        })
-    return district_data
+async def get_district_surveillance(days: int = Query(30, ge=1, le=365), db: AsyncSession = Depends(get_db),
+                                    current_user: User = Depends(require_permission(Permission.SURVEILLANCE_VIEW))):
+    scope_d = resolve_district_filter(current_user, None)
+    since = datetime.utcnow() - timedelta(days=days)
+    prev = since - timedelta(days=days)
+    def agg(start, end):  # noqa: E306
+        return (select(DiseaseReport.district, func.count(DiseaseReport.id), func.coalesce(func.sum(DiseaseReport.number_affected), 0),
+                       func.coalesce(func.sum(DiseaseReport.number_dead), 0),
+                       func.sum(case((DiseaseReport.verification_status.in_(["VERIFIED", "LAB_CONFIRMED"]), 1), else_=0)))
+                .where(DiseaseReport.created_at >= start, DiseaseReport.created_at < end, DiseaseReport.deleted_at.is_(None), _demo_filter(DiseaseReport.is_demo))
+                .group_by(DiseaseReport.district))
+    now = datetime.utcnow()
+    cur = {r[0]: r for r in (await db.execute(agg(since, now))).all()}
+    old = {r[0]: r for r in (await db.execute(agg(prev, since))).all()}
+    active = dict((await db.execute(select(VeterinaryCase.district, func.count(VeterinaryCase.id)).where(VeterinaryCase.status.notin_(OPEN_CASE), _demo_filter(VeterinaryCase.is_demo)).group_by(VeterinaryCase.district))).all())
+    out = []
+    for dref in MAHARASHTRA_DISTRICTS:
+        name = dref["name"]
+        if scope_d and name.lower() != scope_d.lower():
+            continue
+        c = cur.get(name)
+        reports, affected, dead, verified = (c[1], int(c[2]), int(c[3]), int(c[4] or 0)) if c else (0, 0, 0, 0)
+        prev_reports = old[name][1] if name in old else 0
+        trend = "insufficient_data" if reports + prev_reports < 3 else ("up" if reports > prev_reports * 1.2 else ("down" if reports < prev_reports * 0.8 else "flat"))
+        risk = "HIGH" if verified >= 3 or dead >= 5 else ("MEDIUM" if reports >= 5 or verified >= 1 else ("LOW" if reports else "NO_REPORTS"))
+        out.append({"district": name, "division": dref["division"], "totalCases": affected, "reports": reports, "verifiedReports": verified,
+                    "activeCases": active.get(name, 0), "recovered": None, "mortality": dead, "vaccinationCoverage": None,
+                    "riskLevel": risk, "riskBasis": "rule: verified>=3 or deaths>=5 → HIGH; reports>=5 or any verified → MEDIUM",
+                    "trend": trend, "lat": dref["lat"], "lng": dref["lng"], "provenance": "PLATFORM_RECORDS", "window_days": days})
+    return out
+
 
 @router.get("/trends")
-async def get_trends():
-    return [
-        {"date": "01 Sep", "cases": 45, "recovered": 30, "deaths": 2},
-        {"date": "04 Sep", "cases": 52, "recovered": 38, "deaths": 1},
-        {"date": "07 Sep", "cases": 61, "recovered": 42, "deaths": 3},
-        {"date": "10 Sep", "cases": 58, "recovered": 50, "deaths": 1},
-        {"date": "13 Sep", "cases": 72, "recovered": 55, "deaths": 4},
-        {"date": "16 Sep", "cases": 68, "recovered": 60, "deaths": 2},
-        {"date": "19 Sep", "cases": 75, "recovered": 65, "deaths": 2}
-    ]
+async def get_trends(days: int = Query(21, ge=7, le=180), district: Optional[str] = None, db: AsyncSession = Depends(get_db),
+                     current_user: User = Depends(require_permission(Permission.SURVEILLANCE_VIEW))):
+    d = resolve_district_filter(current_user, district)
+    since = (datetime.utcnow() - timedelta(days=days - 1)).replace(hour=0, minute=0, second=0, microsecond=0)
+    stmt = select(DiseaseReport.created_at, DiseaseReport.number_affected, DiseaseReport.number_dead).where(DiseaseReport.created_at >= since, DiseaseReport.deleted_at.is_(None), _demo_filter(DiseaseReport.is_demo))
+    if d:
+        stmt = stmt.where(DiseaseReport.district == d)
+    buckets = {(since + timedelta(days=i)).date(): {"cases": 0, "deaths": 0, "reports": 0} for i in range(days)}
+    for created, aff, dead in (await db.execute(stmt)).all():
+        b = buckets.get(created.date())
+        if b:
+            b["cases"] += aff or 0
+            b["deaths"] += dead or 0
+            b["reports"] += 1
+    # `recovered` is not tracked per day; returned as null rather than invented.
+    return [{"date": k.strftime("%d %b"), "isoDate": k.isoformat(), **v, "recovered": None, "provenance": "PLATFORM_RECORDS"} for k, v in sorted(buckets.items())]

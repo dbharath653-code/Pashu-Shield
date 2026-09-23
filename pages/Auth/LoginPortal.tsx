@@ -34,8 +34,8 @@ export default function LoginPortal() {
       dashboardPath: "/farmer",
       role: "FARMER" as RoleType,
       credentials: {
-        identifier: "farmer@pashushield.gov.in (or 9823012345)",
-        password: "Farmer@123",
+        identifier: "farmer.demo@pashushield.local (or 9000000001)",
+        password: "(set by server: DEMO_USER_PASSWORD)",
         name: "Ramesh Tukaram Patil (Walwur, Pune)"
       },
       accent: "from-emerald-700 to-teal-800",
@@ -53,8 +53,8 @@ export default function LoginPortal() {
       dashboardPath: "/vet-response",
       role: "VETERINARIAN" as RoleType,
       credentials: {
-        identifier: "vet@pashushield.gov.in (or 9823054321)",
-        password: "Vet@123",
+        identifier: "vet.demo@pashushield.local (or 9000000002)",
+        password: "(set by server: DEMO_USER_PASSWORD)",
         name: "Dr. Sunita Deshmukh (Shirur Polyclinic)"
       },
       accent: "from-blue-700 to-indigo-800",
@@ -72,8 +72,8 @@ export default function LoginPortal() {
       dashboardPath: "/lab",
       role: "LAB_TECHNICIAN" as RoleType,
       credentials: {
-        identifier: "lab@pashushield.gov.in (or 9823077777)",
-        password: "Lab@123",
+        identifier: "lab.demo@pashushield.local (or 9000000003)",
+        password: "(set by server: DEMO_USER_PASSWORD)",
         name: "Pooja Shinde (DIS Pune, NABL Accredited)"
       },
       accent: "from-purple-700 to-indigo-900",
@@ -91,8 +91,8 @@ export default function LoginPortal() {
       dashboardPath: "/surveillance",
       role: "STATE_OFFICER" as RoleType,
       credentials: {
-        identifier: "state@pashushield.gov.in (or admin@pashushield.gov.in)",
-        password: "Govt@123 (or Admin@123)",
+        identifier: "state.demo@pashushield.local (or admin.demo@pashushield.local)",
+        password: "(set by server: DEMO_USER_PASSWORD)",
         name: "Dr. V. K. Chavan (State Surveillance Coordinator)"
       },
       accent: "from-amber-700 to-red-900",

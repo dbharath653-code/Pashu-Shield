@@ -54,7 +54,6 @@ export default function FarmerSignup() {
     setDistrict("Pune");
     setTaluka("Haveli");
     setVillage("Manjari");
-    setPassword("Farmer@123");
     setErrorMsg(null);
   };
 

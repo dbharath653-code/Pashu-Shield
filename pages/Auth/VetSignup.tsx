@@ -64,7 +64,6 @@ export default function VetSignup() {
     setOrganization("Mobile Veterinary Unit (1962), Haveli");
     setDistrict("Pune");
     setTaluka("Haveli");
-    setPassword("Vet@123");
     setErrorMsg(null);
   };
 

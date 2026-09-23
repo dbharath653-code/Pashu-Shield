@@ -1,29 +1,16 @@
-FROM python:3.11-slim
-
+FROM python:3.11-slim AS base
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PYTHONPATH=/app PORT=8000
 WORKDIR /app
-
-# Install system dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install python requirements
-COPY ml-backend/requirements.txt /tmp/ml-reqs.txt
-RUN pip install --no-cache-dir -r /tmp/ml-reqs.txt \
-    sqlalchemy aiosqlite python-jose[cryptography] bcrypt websockets httpx python-multipart alembic asyncpg email-validator
-
-# Copy backend source & ML models
+RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
+COPY backend/requirements.txt /tmp/requirements.txt
+RUN pip install --no-cache-dir -r /tmp/requirements.txt
 COPY backend /app/backend
 COPY ml-backend /app/ml-backend
 COPY migrations /app/migrations
-
-ENV PYTHONPATH=/app
-ENV PORT=8000
-
+COPY alembic.ini /app/alembic.ini
+RUN useradd --system --uid 10001 --home /app pashu && mkdir -p /app/var/uploads && chown -R pashu /app/var
+USER pashu
 EXPOSE 8000
-
-HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
-  CMD curl -f http://localhost:8000/health || exit 1
-
-CMD ["python3", "-m", "uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"]
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 CMD curl -fsS http://localhost:8000/live || exit 1
+# Migrations run as a separate one-shot step (see docker-compose `migrate` service).
+CMD ["python", "-m", "uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips", "*"]
