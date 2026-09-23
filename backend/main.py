@@ -10,8 +10,8 @@ from backend.config import settings
 from backend.database import AsyncSessionLocal
 from backend.init_db import check_database, seed_database
 from backend.middleware import HTTPSRedirectInProduction, RequestContextMiddleware, configure_logging, install_error_handlers
-from backend.routers import (alerts, animals, audit, auth, cases, external, gis, labs, ml, reports, surveillance, sync, users, vaccinations,
-                             voice)
+from backend.routers import (alerts, animals, audit, auth, calls, callbacks, cases, external, gis, labs, ml, reports, surveillance, sync,
+                             telephony, users, vaccinations, voice)
 from backend.services.websocket_manager import ws_manager
 
 configure_logging()
@@ -50,7 +50,8 @@ app.add_middleware(CORSMiddleware, allow_origins=settings.CORS_ORIGINS, allow_cr
                    expose_headers=["X-Request-ID", "X-Total-Count", "X-Next-Offset"])
 
 api_v1 = settings.API_V1_STR
-for r in (auth, users, animals, reports, cases, labs, vaccinations, surveillance, gis, alerts, sync, voice, external, audit, ml):
+for r in (auth, users, animals, reports, cases, labs, vaccinations, surveillance, gis, alerts, sync, voice, external, audit, ml,
+          telephony, calls, callbacks):
     app.include_router(r.router, prefix=api_v1)
 app.include_router(external.webhooks, prefix=api_v1)
 

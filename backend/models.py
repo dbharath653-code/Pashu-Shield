@@ -777,6 +777,127 @@ class Job(Base):
     finished_at = Column(DateTime, nullable=True)
 
 
+# ----------------------------------------------------------------------------------------
+# Telephony / inbound IVR (Twilio)
+# ----------------------------------------------------------------------------------------
+class CallSession(Base):
+    """One farmer phone call through the IVR (inbound Twilio call or DEMO simulation).
+
+    `status` is the call state machine — see services/telephony/call_router.py:
+    INBOUND -> IDENTIFIED -> LANGUAGE_SELECTED -> VET_SEARCH -> VET_DIALING ->
+    VET_CONNECTED/BRIDGED -> SURVEY -> CONFIRMATION -> REPORT_CREATED -> TRIAGED ->
+    CALLBACK_REQUESTED -> COMPLETED | FAILED
+    """
+    __tablename__ = "call_sessions"
+    __table_args__ = (
+        Index("ix_calls_status_started", "status", "started_at"),
+    )
+
+    id = Column(String(64), primary_key=True, index=True)
+    provider = Column(String(32), default="twilio", nullable=False)  # twilio | mock
+    provider_call_id = Column(String(64), unique=True, index=True, nullable=False)  # Twilio CallSid / mock id
+    caller_phone = Column(String(32), index=True, nullable=True)
+    to_phone = Column(String(32), nullable=True)  # our Twilio number
+    direction = Column(String(16), default="INBOUND", nullable=False)
+    language = Column(String(8), nullable=True)  # selected IVR language (en/mr/hi/...)
+    district = Column(String(128), nullable=True, index=True)  # stamped from farmer profile / report (may be "Unknown")
+    status = Column(String(32), default="INBOUND", nullable=False, index=True)
+    farmer_id = Column(String(64), ForeignKey("users.id"), nullable=True, index=True)  # matched by phone (signal only)
+    veterinarian_id = Column(String(64), ForeignKey("users.id"), nullable=True, index=True)
+    disease_report_id = Column(String(64), ForeignKey("disease_reports.id"), nullable=True, index=True)
+    ivr_survey_id = Column(String(64), nullable=True, index=True)
+    recording_status = Column(String(32), default="NONE", nullable=False)  # NONE | IN_PROGRESS | COMPLETED | FAILED | DISABLED
+    recording_sid = Column(String(64), nullable=True)
+    recording_url = Column(String(512), nullable=True)  # private; access audited, never served publicly
+    recording_duration = Column(Integer, nullable=True)
+    transcription_status = Column(String(32), default="NOT_CONFIGURED", nullable=False)  # NOT_CONFIGURED | PENDING | COMPLETED | FAILED
+    ai_summary = Column(Text, nullable=True)
+    vet_attempts = Column(JSON, default=list)  # [{"vet_id", "phone_tail", "result"}]
+    last_status = Column(String(32), nullable=True)  # raw provider CallStatus
+    last_error = Column(Text, nullable=True)
+    is_simulated = Column(Boolean, default=False, nullable=False)  # DEMO / SIMULATED — never presented as a real call
+    started_at = Column(DateTime, default=utcnow, index=True)
+    answered_at = Column(DateTime, nullable=True)
+    ended_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=utcnow, index=True)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
+
+
+class CallTranscript(Base):
+    """Transcript lines produced from a call recording (or mock text). Speaker is the role
+    in the conversation, never a fabricated identity."""
+    __tablename__ = "call_transcripts"
+    __table_args__ = (Index("ix_transcript_session_start", "call_session_id", "start_time"),)
+
+    id = Column(String(64), primary_key=True, index=True)
+    call_session_id = Column(String(64), ForeignKey("call_sessions.id", ondelete="CASCADE"), nullable=False, index=True)
+    speaker = Column(String(32), nullable=False)  # FARMER | VETERINARIAN | IVR | SYSTEM
+    text = Column(Text, nullable=False)
+    start_time = Column(Float, nullable=True)  # seconds from call start
+    end_time = Column(Float, nullable=True)
+    confidence = Column(Float, nullable=True)
+    language = Column(String(8), nullable=True)
+    source = Column(String(32), default="STT", nullable=False)  # STT | MOCK | MANUAL
+    created_at = Column(DateTime, default=utcnow)
+
+
+class IVRSurvey(Base):
+    """DTMF survey state for one call. Answers live in IVRSurveyResponse."""
+    __tablename__ = "ivr_surveys"
+
+    id = Column(String(64), primary_key=True, index=True)
+    call_session_id = Column(String(64), ForeignKey("call_sessions.id", ondelete="CASCADE"), nullable=False, index=True)
+    status = Column(String(32), default="IN_PROGRESS", nullable=False)  # IN_PROGRESS | COMPLETED | CANCELLED | ABANDONED
+    language = Column(String(8), nullable=True)
+    current_question = Column(String(32), nullable=True)  # key of the question being asked
+    attempts = Column(Integer, default=0, nullable=False)  # invalid-DTMF retries on current question
+    completed_at = Column(DateTime, nullable=True)
+    disease_report_id = Column(String(64), ForeignKey("disease_reports.id"), nullable=True)
+    created_at = Column(DateTime, default=utcnow, index=True)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
+
+
+class IVRSurveyResponse(Base):
+    """One validated, normalised answer per survey question (unique — duplicate webhooks
+    cannot create duplicate answers)."""
+    __tablename__ = "ivr_survey_responses"
+    __table_args__ = (UniqueConstraint("survey_id", "question", name="uq_survey_question"),)
+
+    id = Column(String(64), primary_key=True, index=True)
+    survey_id = Column(String(64), ForeignKey("ivr_surveys.id", ondelete="CASCADE"), nullable=False, index=True)
+    question = Column(String(32), nullable=False)
+    answer = Column(Text, nullable=True)  # raw input (DTMF digit / speech)
+    normalized_answer = Column(JSON, nullable=True)  # validated canonical value; null stays null
+    created_at = Column(DateTime, default=utcnow, index=True)
+
+
+class CallbackRequest(Base):
+    """Callback queue entry created when no veterinarian answers the IVR (PATH B).
+    `priority` reuses the existing triage severity (CRITICAL/HIGH/MODERATE/LOW)."""
+    __tablename__ = "callback_requests"
+    __table_args__ = (Index("ix_callback_status_priority", "status", "priority"),)
+
+    id = Column(String(64), primary_key=True, index=True)
+    farmer_id = Column(String(64), ForeignKey("users.id"), nullable=True, index=True)
+    call_session_id = Column(String(64), ForeignKey("call_sessions.id"), nullable=True, index=True)
+    disease_report_id = Column(String(64), ForeignKey("disease_reports.id"), nullable=True, index=True)
+    caller_phone = Column(String(32), nullable=True)  # masked in API responses without PII permission
+    district = Column(String(128), nullable=True, index=True)
+    taluka = Column(String(128), nullable=True)
+    village = Column(String(128), nullable=True)
+    species = Column(String(64), nullable=True)
+    symptoms = Column(JSON, default=list)
+    priority = Column(String(16), default="MODERATE", nullable=False, index=True)  # triage severity
+    status = Column(String(32), default="PENDING", nullable=False, index=True)  # PENDING | ACCEPTED | IN_PROGRESS | COMPLETED | CANCELLED
+    assigned_veterinarian = Column(String(64), ForeignKey("users.id"), nullable=True, index=True)
+    notes = Column(Text, nullable=True)
+    is_simulated = Column(Boolean, default=False, nullable=False)
+    accepted_at = Column(DateTime, nullable=True)
+    completed_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=utcnow, index=True)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
+
+
 class StoredFile(Base):
     __tablename__ = "stored_files"
 

@@ -138,6 +138,7 @@ SCHEDULE: List[tuple[str, int]] = [
     ("ingest.nadres", 6 * 3600),
     ("ingest.government", 6 * 3600),
     ("cleanup.retention", 24 * 3600),
+    ("call.cleanup_recordings", 24 * 3600),
     ("health.providers", 300),
 ]
 _last_scheduled: Dict[str, datetime] = {}
