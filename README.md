@@ -1,270 +1,476 @@
-# Pashu-Shield — Production Real-Time Livestock Health Surveillance & Veterinary Response Platform
+# Pashu-Shield — Livestock Health Surveillance, Early-Warning & Veterinary Response Platform
 
-**Pashu-Shield** is a full-stack, real-time, offline-first livestock disease surveillance, outbreak early-warning, and emergency veterinary response platform designed for Maharashtra state animal husbandry operations.
+**Pashu-Shield** is an offline-first, real-time livestock disease surveillance, outbreak early-warning, and emergency veterinary response platform built for Maharashtra state animal-husbandry operations. It combines a React 19 PWA frontend, an async FastAPI backend with PostgreSQL/PostGIS, a background job worker, an inbound phone (Twilio IVR) channel for farmers without smartphones, and on-device ML — with a strict **honest-data policy**: surveillance figures are computed only from stored records, and unconfigured integrations are shown as *unavailable*, never substituted with fabricated numbers.
+
+- **Backend API version:** 2.1.0 (`backend/config.py`)
+- **Docs:** [IVR Setup & Operations](IVR_SETUP.md) · [External Integrations Status](docs/INTEGRATIONS.md) · [Environment Variables](.env.example)
+
+---
+
+## Table of Contents
+
+1. [Architecture Overview](#architecture-overview)
+2. [Repository Layout](#repository-layout)
+3. [Backend (FastAPI)](#backend-fastapi)
+4. [Inbound Telephony & IVR (Twilio)](#inbound-telephony--ivr-twilio)
+5. [Background Worker & Scheduled Jobs](#background-worker--scheduled-jobs)
+6. [Real-Time Events (WebSocket)](#real-time-events-websocket)
+7. [Machine Learning](#machine-learning)
+8. [Frontend (React 19 PWA)](#frontend-react-19-pwa)
+9. [Offline-First Synchronisation](#offline-first-synchronisation)
+10. [Roles & RBAC](#roles--rbac)
+11. [Demo Accounts](#demo-accounts)
+12. [End-to-End Workflow](#end-to-end-workflow)
+13. [Local Setup & Running](#local-setup--running)
+14. [Configuration & Environments](#configuration--environments)
+15. [Docker Deployment](#docker-deployment)
+16. [Hosting (Vercel / Netlify / GitHub Pages)](#hosting-vercel--netlify--github-pages)
+17. [Testing & CI](#testing--ci)
+18. [Security Posture](#security-posture)
+19. [External Integrations](#external-integrations)
 
 ---
 
 ## Architecture Overview
 
 ```
-                                      +---------------------------------------------+
-                                      |            Pashu-Shield Frontend            |
-                                      | (React 19 + TypeScript + Vite + Tailwind 4) |
-                                      +---------------------------------------------+
-                                        /                  |                      \
-                     Role Dashboards   /                   |                       \   Accessibility
-            +-------------------------+                    |                        +---------------------------+
-            | 🌾 Farmer Portal        |                    |                        | 🎙️ Multi-turn Voice Assist|
-            | 👨‍⚕️ Veterinarian Queue   |                    |                        | 🌐 8 Language Dictionaries |
-            | 🧪 Laboratory Sample QR |                    |                        | 🗺️ Google Maps + Leaflet  |
-            | 🏛️ Government Surveillance|                   |                        | 📱 Offline IndexedDB PWA  |
-            +-------------------------+                    |                        +---------------------------+
-                                                           |
-                                                  WebSocket & REST APIs
-                                                           |
-                                      +---------------------------------------------+
-                                      |            FastAPI Backend Service          |
-                                      |       (Python 3.11 + Async Architecture)    |
-                                      +---------------------------------------------+
-                                        /         |             |          \       \
-       Authentication & RBAC           /          |             |           \       \  External Adapters
-+------------------------------------+            |             |            \       +----------------------+
-| JWT Tokens + Bcrypt Hashing        |            |             |             \      | ICAR-NIVEDI NADRES   |
-| 6 User Roles + Strict Jurisdiction |            |             |              \     | DAHD Livestock Census|
-| Real-time Audit Logging            |            |             |               \    | Open-Meteo Weather   |
-+------------------------------------+            |             |                \   | SMS (Fast2SMS/Mock)  |
-                                                  |             |                 \  | WhatsApp Cloud API   |
-                                       Database Layer           |                  \ +----------------------+
-            +-------------------------------------------+  Realtime Event Bus       \
-            | Primary: PostgreSQL 15 + PostGIS (Spatial)|  (WebSockets + Pub/Sub)    \ Clinical Triage Engine
-            | Local Dev Fallback: SQLite via aiosqlite  |                             +----------------------+
-            | Normalized Schemas: 18 relational tables  |                             | Rule-based Safety    |
-            | SQL DDL: migrations/001_initial_schema.sql|                             | Scikit-Learn ML RF   |
-            +-------------------------------------------+                             | Outbreak IsoForest   |
-                                                                                      +----------------------+
+                                        +---------------------------------------------------+
+                                        |              Pashu-Shield Frontend (PWA)          |
+                                        |  React 19 · TypeScript · Vite 8 · Tailwind 4      |
+                                        |  Workbox service worker · IndexedDB · Leaflet     |
+                                        |  Web Speech + Whisper-tiny (ONNX, in-browser)     |
+                                        +-------------------------+-------------------------+
+                                            /api/v1 REST + /api/v1/ws WebSocket (Vite dev proxy)
+                                                                      |
+              Farmer phone ──► Twilio ──► signed webhooks             |
+                                        +-----------------------------▼---------------------+
+                                        |              FastAPI Backend (async, Python 3.11) |
+                                        |  18 routers · ~96 REST endpoints · JWT + RBAC     |
+                                        |  Triage · Dispatch · Alert & Outbreak engines     |
+                                        +----+------------------+------------------+--------+
+                                             |                  |                  |
+                        +--------------------▼-----+   +--------▼--------+   +-----▼---------------------+
+                        | PostgreSQL 15 + PostGIS  |   | Redis 7         |   | Background Worker         |
+                        | (SQLite fallback in dev) |   | rate limits +   |   | python -m backend.worker  |
+                        | 37 tables · Alembic      |   | job queue       |   | notifications · expiry ·  |
+                        | 3 migrations             |   | (optional)      |   | outbreak · ingest · purge |
+                        +--------------------------+   +-----------------+   +---------------------------+
+                                             |
+        +--------------------+---------------+----------------+--------------------+
+        |                    |                |                |                    |
++───────▼───────+   +────────▼───────+   +──────▼──────+   +───────▼───────+    +───────▼────────+
+│ Twilio        │   │ Notifications  │   │ File store  │   │ External data │    │ ML models      │
+│ voice + TwiML │   │ Fast2SMS SMS · │   │ magic-byte  │   │ NADRES · DAHD │    │ RandomForest · │
+│ signature     │   │ WhatsApp Cloud │   │ validation +│   │ · Open-Meteo  │    │ IsolationForest│
+│ validation    │   │ API (signed)   │   │ ClamAV scan │   │ · OSRM · labs │    │ (+ browser     │
++───────────────+   +────────────────+   +─────────────+   +───────────────+    │ fallback)      │
+                                                              +────────────────+
+
+Every provider above has a safe default: unset ⇒ endpoint reports UNAVAILABLE /
+CONFIGURATION_REQUIRED. Production refuses to start with insecure or mock settings.
 ```
 
 ---
 
-## 1. What Was Implemented
-
-1. **Complete FastAPI Production Backend (`backend/`)**:
-   - `backend/config.py`: Centralized environment configuration and security settings.
-   - `backend/database.py`: Async SQLAlchemy 2.0 engine with PostgreSQL/PostGIS support and transparent local SQLite fallback.
-   - `backend/models.py`: 18 normalized relational models (Users, UserSessions, Farms, Herds, Animals, DiseaseReports, VeterinaryCases, VeterinaryVisits, Laboratories, LabSamples, LabTests, VaccinationCampaigns, VaccinationRecords, OutbreakEvents, Alerts, Notifications, AuditLogs, ExternalDataRecords, SyncEvents).
-   - `backend/schemas.py`: Comprehensive Pydantic v2 validation models.
-   - `backend/security.py`: Direct bcrypt hashing (no passlib wrap bugs), JWT access & refresh tokens, strict role-based authorization dependencies (`require_roles`).
-   - `backend/init_db.py`: Complete database seeder with realistic Maharashtra districts, veterinarians, diagnostic laboratories, dairy farms, and registered herds.
-   - `migrations/001_initial_schema.sql`: Production PostgreSQL + PostGIS DDL schema with spatial geometry columns and performance indexes.
-
-2. **Real-Time Multi-User Synchronization & WebSockets**:
-   - `backend/services/websocket_manager.py`: Topic-based and user-directed WebSocket connection manager (`/api/v1/ws`).
-   - Real-time broadcasts for `REPORT_CREATED`, `CASE_CREATED`, `CASE_STATUS_CHANGED`, `LAB_SAMPLE_COLLECTED`, `LAB_RESULT_VERIFIED`, and `SYNC_COMPLETED`.
-   - Visual WebSocket connection state banner on frontend (`CONNECTED`, `RECONNECTING`, `OFFLINE`, `SYNCING`).
-
-3. **Safe Clinical Triage & Automated Dispatch Engine**:
-   - `backend/services/triage_service.py`: Evaluates species, symptoms, mortality, body temperature, and clinical red flags without claiming certainty of diagnosis.
-   - Provides risk levels (`LOW`, `MODERATE`, `HIGH`, `CRITICAL`), urgency ratings (`ROUTINE`, `URGENT`, `EMERGENCY`), biosecurity protocols, and disclaimers.
-   - `backend/services/dispatch_service.py`: Calculates Haversine distances between farmers and registered veterinarians in the district, automatically creating and routing cases to eligible veterinarians.
-
-4. **Laboratory Sample Lifecycle & Verification**:
-   - Full 9-stage lifecycle: `COLLECTED` -> `IN_TRANSIT` -> `RECEIVED` -> `ACCEPTED` -> `TESTING` -> `RESULT_PENDING` -> `VERIFIED` -> `RELEASED` -> `CLOSED`.
-   - Sample QR generation, test entry (RT-PCR, ELISA, Serology), and formal verification with audit logging.
-
-5. **Voice-First Farmer Experience**:
-   - `components/PersistentVoiceAssistant.tsx`: Large persistent floating voice button (🎙️).
-   - Multi-turn conversational state machine with Web Speech STT and Text-To-Speech audio feedback.
-   - Extracts intent (`REPORT_DISEASE`, `REQUEST_VETERINARIAN`, `VIEW_ANIMALS`, `CHECK_VACCINATION`, `CHECK_LAB_RESULT`, `SYNC_DATA`, `GET_DISEASE_INFORMATION`).
-   - Protects write actions with user voice/click confirmation.
-
-6. **Complete 8-Language Localization Dictionaries**:
-   - Complete identical keys for:
-     1. `en` (English)
-     2. `mr` (Marathi)
-     3. `hi` (Hindi)
-     4. `te` (Telugu)
-     5. `kn` (Kannada)
-     6. `gu` (Gujarati)
-     7. `ta` (Tamil)
-     8. `bn` (Bengali)
-   - `TranslationService` abstraction with Google Cloud Translation provider and verified veterinary terminology glossary fallback.
-
-7. **Production Maps with Google Maps + Leaflet Fallback**:
-   - `components/PashuMap.tsx`: Detects `VITE_GOOGLE_MAPS_API_KEY`. When configured, loads Google Maps JavaScript SDK with custom markers, clustering, and route navigation. Automatically degrades to Leaflet GIS when offline or key is unconfigured.
-
-8. **Notification Provider Architecture**:
-   - `backend/services/notification_service.py`: Multi-channel provider for SMS (Fast2SMS / Twilio / Mock adapter), WhatsApp Business Cloud API, and in-app alerts.
-
-9. **External Data Provider Layer**:
-   - `backend/services/external_data_service.py`: Official adapters for ICAR-NIVEDI NADRES monthly disease forewarning bulletins, DAHD 20th Livestock Census, and Open-Meteo weather parameters.
-
-10. **Offline-First Synchronization**:
-    - Idempotency key tracking in sync queue prevents duplicate records on reconnection.
-    - POST `/api/v1/sync/push` and GET `/api/v1/sync/pull` synchronize IndexedDB with primary SQL storage.
-
----
-
-## 2. Existing Features Preserved
-
-- Preserved disease reference catalog (`services/DiseaseService.ts`).
-- Preserved 20th Livestock Census baseline populations (`services/ReferenceData.ts`).
-- Preserved offline IndexedDB storage architecture (`services/db/IndexedDBService.ts`).
-- Preserved Whisper WebAssembly worker integration for offline transcription (`workers/whisperWorker.ts`).
-- Preserved machine learning models (`ml-backend/models/rf_model.pkl`, `iso_model.pkl`, `scaler.pkl`, `metrics.json`).
-- Preserved PWA offline caching service worker configuration (`vite.config.ts`).
-- Preserved existing GIS GeoJSON layers (`public/maharashtra_locations.json`, `public/maharashtra_state.geojson`).
-
----
-
-## 3. Dedicated Role Portals & Authentication Credentials
-
-Pashu-Shield provides **separate login and registration pages** tailored for each operational role. The **Government Official** functions as the administrative and surveillance authority overseeing the entire state situation.
-
-### Authentication Endpoints & Credentials Matrix
-
-| Operational Role | Dedicated Login Route | Dedicated Sign-up Route | Authorized Email / Phone | Password | Default User & Jurisdiction |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **🌾 Farmer / Livestock Keeper** | `/login/farmer` | `/signup/farmer` | `farmer@pashushield.gov.in`<br>(or `9823012345`) | `Farmer@123` | Ramesh Tukaram Patil<br>(Walwur, Shirur, Pune) |
-| **👨‍⚕️ Veterinary Officer** | `/login/veterinary` | `/signup/veterinary` | `vet@pashushield.gov.in`<br>(or `9823054321`) | `Vet@123` | Dr. Sunita Deshmukh<br>(MSVC-2018-04821, Shirur Polyclinic) |
-| **🧪 Diagnostic Laboratory** | `/login/laboratory` | `/signup/laboratory` | `lab@pashushield.gov.in`<br>(or `9823077777`) | `Lab@123` | Pooja Shinde (Senior Microbiologist)<br>(DIS Pune, NABL ISO/IEC 17025) |
-| **🏛️ Government Official (Admin)** | `/login/government`<br>(alias `/login/admin`) | `/signup/government`<br>(alias `/signup/admin`) | `state@pashushield.gov.in`<br>(or `admin@pashushield.gov.in`) | `Govt@123`<br>(or `Admin@123`) | Dr. V. K. Chavan<br>(State Surveillance Coordinator / Joint Director) |
-
-- **Unified Role Portals Hub**: Accessible at `/login` with 1-click demo logins and credentials inspection cards.
-- **Unified Sign-up Hub**: Accessible at `/signup` with dedicated forms for each role category.
-- **Top Bar & Sidebar Access**: Direct "Role Portals" button and User Profile menu allows switching roles or signing out at any point.
-
----
-
-## 4. User Roles & RBAC Matrix
-
-| Role | Default Demo Account | Primary Capabilities | Restricted Capabilities |
-| --- | --- | --- | --- |
-| **FARMER** | `farmer@pashushield.gov.in` | Voice assistant, register cattle/herds, report sick animal, request vet, view vaccinations & lab results | No administrative controls, no state-wide surveillance oversight |
-| **VETERINARIAN** | `vet@pashushield.gov.in` | Assigned cases queue, emergency response, on-site visit recording, clinical diagnosis, order lab samples | Cannot approve lab verification or change state policy |
-| **LAB_TECHNICIAN** | `lab@pashushield.gov.in` | Receive samples, QR scan, execute RT-PCR/ELISA tests, record values, verify results for surveillance release | Cannot perform field veterinary triage |
-| **DISTRICT_OFFICER** | `district@pashushield.gov.in` | District risk monitoring, outbreak containment tracking, veterinary workload oversight | Limited to district jurisdiction |
-| **STATE_OFFICER (ADMIN)** | `state@pashushield.gov.in` | Full Maharashtra surveillance, NADRES comparison, vaccination campaign management, GIS hotspot quarantine | State surveillance & administrative authority |
-| **SYSTEM_ADMIN** | `admin@pashushield.gov.in` | User account approvals, role permissions, audit log investigation, system configuration | Unrestricted system-wide authority |
-
----
-
-## 4. Critical End-to-End Workflow
+## Repository Layout
 
 ```
-FARMER
-  │  (Speaks: "My cow has fever and blisters")
-  ▼
-VOICE ASSISTANT (NLP Intent Extraction)
-  │  (Entities: Cattle, Fever, Blisters → Triage Urgency: EMERGENCY)
-  ▼
-CLINICAL TRIAGE ENGINE
-  │  (Evaluates clinical red flags, assigns HIGH/CRITICAL risk)
-  ▼
-DATABASE RECORD CREATED (Report #MH-PUN-260901-A101)
-  │  (Triggers real-time event & alerts)
-  ▼
-VETERINARY DISPATCH ENGINE
-  │  (Calculates proximity, selects Dr. Sunita Deshmukh)
-  ▼
-REAL-TIME WEBSOCKET BROADCAST
-  │  (Notifies Veterinarian & updates Government Surveillance)
-  ▼
-VETERINARIAN ACCEPTS CASE
-  │  (Status: ASSIGNED → EN_ROUTE → ON_SITE)
-  ▼
-DIAGNOSTIC SAMPLE ORDERED
-  │  (Sample #SMP-PUN-2609-10231 registered with QR)
-  ▼
-LABORATORY TESTING & VERIFICATION
-  │  (RT-PCR confirmed → Lab Officer signs off)
-  ▼
-NOTIFICATIONS DISPATCHED
-  │  (Farmer notified via SMS/WhatsApp; Government outbreak status updated)
+├── App.tsx                    # React router: 16 modules + dedicated per-role auth pages
+├── backend/                   # FastAPI application (the only canonical API/ML implementation)
+│   ├── main.py                # App factory, lifespan, WebSocket endpoint, health probes
+│   ├── config.py              # Validated settings; production refuses insecure configs
+│   ├── database.py            # Async SQLAlchemy 2.0 engine (PostGIS/asyncpg or aiosqlite)
+│   ├── models.py              # 37 relational tables (sync-enabled, audited)
+│   ├── schemas.py             # Pydantic v2 request/response models
+│   ├── security.py            # bcrypt, JWT issue/verify, require_roles dependencies
+│   ├── middleware.py          # Request-context (X-Request-ID), JSON logs, error envelope
+│   ├── init_db.py             # Schema bootstrap + opt-in demo seeding (is_demo=true rows)
+│   ├── worker.py              # `python -m backend.worker` job runner (SKIP LOCKED safe)
+│   ├── routers/               # auth · users · animals · reports · cases · labs · vaccinations
+│   │                          # surveillance · gis · alerts · sync · voice · external · audit
+│   │                          # ml · telephony · calls · callbacks (+ external webhooks)
+│   └── services/              # triage · dispatch · alert_engine · outbreak · workflow · jobs
+│                              # notification · external_data · lab_integration · ml_service
+│                              # translation · routing (OSRM) · spatial · idempotency · rate_limit
+│                              # file_service (ClamAV) · websocket_manager · events · audit
+│                              # ivr/ (prompts · question_flow · survey_engine)
+│                              # telephony/ (twiml · call_router · twilio · mock · webhooks)
+│                              # voice/ (transcription · extraction · call_summary)
+├── migrations/                # Alembic: 0001_baseline → 0002_postgis → 0003_telephony_ivr
+├── ml-backend/                # Optional thin wrapper deploying the canonical ML router
+│   ├── main.py                # mounts backend.routers.ml — one implementation, two hosts
+│   ├── train_model.py         # RandomForest + IsolationForest training (synthetic, versioned)
+│   └── models/                # rf_model.pkl · iso_model.pkl · scaler.pkl · model_card.json
+├── components/                # Layout, Sidebar, Topbar, PashuMap, PersistentVoiceAssistant,
+│                              # SyncModal, ActivityFeedWidget, ErrorBoundary
+├── context/                   # Auth, App, Alerts, AnimalHealth, Lab, Vaccination,
+│                              # VetResponse, Multilingual providers
+├── pages/                     # Dashboard, FarmerDashboard, DiseaseSurveillance, GisRiskMap,
+│                              # AIEarlyWarning, CaseReporting, AnimalHealth/, VetResponse/,
+│                              # LabManagement/, VaccinationManagement/, AlertsNotifications/,
+│                              # Multilingual/, OfflineSync/, DiseaseInfo/, Analytics/,
+│                              # Administration/, Auth/ (per-role login & signup)
+├── services/                  # Frontend API layer: apiAuth (fetch wrapper + token rotation),
+│                              # ReportingService, AnalyticsService, AdminService, DiseaseService,
+│                              # LocalMLService, MLApiService, ReferenceData, SyncService (tsx),
+│                              # IndexedDBService, AssetPaths, Dialogs
+├── workers/whisperWorker.ts   # Offline speech-to-text (Xenova/whisper-tiny, quantised ONNX)
+├── locales/                   # 8 UI dictionaries: en · hi · mr · te · kn · gu · ta · bn
+├── public/                    # Whisper ONNX models, ONNX Runtime WASM, Maharashtra GeoJSON,
+│                              # symptom dictionary, browser ML weights, PWA icons
+├── tests/                     # pytest: test_backend.py · test_services.py · test_telephony.py
+├── scripts/                   # smoke.mjs (headless route smoke test) · ivr_smoke.py (live Twilio)
+├── docs/INTEGRATIONS.md       # Integration status vocabulary & per-provider configuration
+├── IVR_SETUP.md               # Twilio inbound IVR setup & operations guide
+├── docker-compose.yml         # PostGIS + Redis + ClamAV + migrate + backend + worker + nginx
+├── Dockerfile.backend         # python:3.11-slim, non-root user, healthcheck
+├── Dockerfile.frontend        # node:20 build → nginx:alpine with /api & /ws proxy
+├── vercel.json / netlify.toml # SPA rewrites + cache/WASM headers for static hosting
+└── .github/workflows/ci.yml   # Frontend & backend pipelines (see Testing & CI)
 ```
 
 ---
 
-## 5. Local Setup & Running Instructions
+## Backend (FastAPI)
 
-### Prerequisites
-- Node.js ≥ 20.19 and npm
-- Python ≥ 3.11 with pip
+Async Python 3.11 service under `backend/`, mounted at `/api/v1` (legacy `/api` aliases kept for `ml`, `reports`, `animals`, `alerts`).
 
-### Quick Start (Dev Environment)
+### API routers (18)
 
-1. **Install Frontend Dependencies**:
+| Router | Responsibility |
+| --- | --- |
+| `auth` | Signup per role, login (email **or** phone), JWT access/refresh with rotation & reuse detection, logout, session list, gated demo login, `/me` |
+| `users` | Directory, verification & activation (admin, jurisdiction-scoped) |
+| `animals` | Farms, herds, animals with coordinates & tagging |
+| `reports` | Disease reports with server-side triage, verification, idempotent creation |
+| `cases` | Veterinary case lifecycle: dispatch offer → accept/reject → assign → status → visits |
+| `labs` | Sample registration, 9-stage status flow, chain-of-custody, test entry, verification |
+| `vaccinations` | Campaigns and vaccination records (dose, batch, due-date reminders) |
+| `surveillance` | Overview, districts and trends — **computed from stored records only** |
+| `gis` | Layers/routes built from stored records (no hardcoded clusters; OSRM or `ETA_UNAVAILABLE`) |
+| `alerts` | Alert feed, mark-read, notification inbox |
+| `sync` | Offline push/pull with cursors, version conflicts & resolutions |
+| `voice` | Multilingual intent parsing (`/voice/intent`) and translation |
+| `external` | NADRES bulletins, census, weather, data-source status, ingestion, WhatsApp & legacy IVR webhooks |
+| `audit` | Tamper-evident audit log queries (restricted roles) |
+| `ml` | Risk prediction, outbreak detection, forecasting, clustering, model card & performance |
+| `telephony` | Twilio voice webhooks (signature-validated, fail-closed): inbound, IVR, survey, status, recording |
+| `calls` | Vet-dashboard view of IVR calls: list, detail, transcript, recording, close, demo simulate |
+| `callbacks` | Callback queue (Path B): list, accept, call-back, complete, convert to case |
+
+### Domain services
+
+- **Triage engine** (`services/triage_service.py`) — species/symptom/mortality/temperature rules with clinical red flags → risk (`LOW/MODERATE/HIGH/CRITICAL`) and urgency (`ROUTINE/URGENT/EMERGENCY`), always with explanations and a "not a diagnosis" disclaimer. Temperature accepted in °C or °F with unit validation.
+- **Dispatch engine** (`services/dispatch_service.py`) — Haversine proximity over eligible `VeterinarianProfile`s, offer/accept workflow with expiry (`DISPATCH_ACCEPT_TIMEOUT_MINUTES`), availability & specialisation matching.
+- **Alert engine & outbreak detection** (`services/alert_engine.py`, `services/outbreak_service.py`) — threshold + ML cluster triggers, district-scoped alert creation.
+- **Lab integration** (`services/lab_integration.py`) — 9-stage sample lifecycle `COLLECTED → IN_TRANSIT → RECEIVED → ACCEPTED → TESTING → RESULT_PENDING → VERIFIED → RELEASED → CLOSED` with custody events and result revisions (no silent edits).
+- **Notification service** (`services/notification_service.py`) — SMS (`fast2sms` with DLT template IDs, `dev_log`, `none`), WhatsApp Cloud API (`X-Hub-Signature-256` verified webhook), in-app alerts. `DELIVERED` is set **only** from a provider receipt.
+- **File service** (`services/file_service.py`) — uploads with MIME/extension/magic-byte validation, random storage keys, ClamAV scanning (refused without a scanner in production), retention expiry, per-request authorised downloads.
+- **Idempotency & rate limiting** (`services/idempotency.py`, `services/rate_limit.py`) — `Idempotency-Key` replay protection; per-IP/user limits with `memory` or `redis` backends.
+- **External data service** (`services/external_data_service.py`) — NADRES, DAHD census, Open-Meteo adapters with persisted `data_source_status` and honest `LIVE / CONFIGURED / MOCK / UNAVAILABLE` states (see [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md)).
+- **Translation service** (`services/translation_service.py`) — Google provider or local glossary fallback clearly labelled `FALLBACK_GLOSSARY_PARTIAL`.
+
+### Data layer
+
+- **37 tables** in `backend/models.py` (users, sessions, farms, herds, animals, disease reports, cases, workflow events, vet profiles, dispatch requests, visits, laboratories, facilities, lab samples + custody + tests + result revisions, vaccination campaigns/records, surveillance observations, outbreak events, alerts, notifications, audit logs, external data records, data source status, snapshots, sync events/conflicts, idempotency, jobs, call sessions/transcripts, IVR surveys/responses, callback requests, stored files).
+- **Schema is managed by Alembic** (`migrations/versions/`): `0001_baseline` → `0002_postgis` (geometry columns & spatial indexes) → `0003_telephony_ivr`. CI runs upgrade → check → downgrade → upgrade against PostGIS 15.
+- PostgreSQL/PostGIS in staging/production (`asyncpg`); transparent **SQLite fallback** (`aiosqlite`) for local development and tests. `create_all` is dev/test-only — production always migrates.
+
+---
+
+## Inbound Telephony & IVR (Twilio)
+
+Farmers without smartphones can dial a real Twilio number. Full setup guide: [IVR_SETUP.md](IVR_SETUP.md).
+
+```
+Farmer phone ──► Twilio ──► POST /api/v1/telephony/inbound   (X-Twilio-Signature validated, fail-closed)
+                                    │
+                 ┌──────────────────┴───────────────────┐
+       Path A: vet available                Path B: vet unavailable
+       <Dial> the on-duty veterinarian      8-question DTMF survey in the caller's language
+       (optional recording + status         (validate · repeat · back · cancel)
+       callbacks)                                        │
+                 │                              finalize_survey() → DiseaseReport (source="IVR")
+                 │                                        → triage → CallbackRequest
+                 └──────── one CallSession row (state machine, district-scoped) ────────┘
+```
+
+- **Languages:** `en hi mr te kn ta gu bn` (DTMF selection, `IVR_DEFAULT_LANGUAGE` fallback).
+- **Recordings** (optional, `CALL_RECORDING_ENABLED`) can be transcribed via OpenAI Whisper (`STT_PROVIDER`) and summarised by OpenAI (`AI_SUMMARY_PROVIDER`) — when unconfigured the summary is an honest `NOT_CONFIGURED`; nothing is invented.
+- **Every call event streams to the dashboards** over the existing WebSocket manager (`CALL_STARTED` … `CALL_COMPLETED`).
+- **Mock provider** (`TELEPHONY_PROVIDER=mock`) plus `POST /api/v1/telephony/demo/simulate` (requires `DEMO_MODE`, refused in production) drive demos and the 25-test telephony suite.
+- **Signature security:** every voice webhook verifies `X-Twilio-Signature` (Twilio `RequestValidator`, fail-closed); production refuses to start without it.
+
+---
+
+## Background Worker & Scheduled Jobs
+
+`python -m backend.worker` executes the `jobs` table queue (PostgreSQL `SKIP LOCKED` — safe to run multiple replicas; `dedup_key` collapses duplicate schedules). In development the API can run jobs **inline** (`JOB_BACKEND=inline`); production requires the dedicated worker.
+
+| Scheduled job | Interval | Purpose |
+| --- | --- | --- |
+| `dispatch.expire_offers` | 60 s | Expire unanswered vet dispatch offers |
+| `health.providers` | 5 min | Refresh external provider reachability |
+| `outbreak.detect` | 15 min | Run outbreak/cluster detection |
+| `vaccination.reminders` | 1 h | Queue reminders for doses due within 3 days (consent-checked) |
+| `ingest.nadres` / `ingest.government` | 6 h | Pull authorised external surveillance feeds |
+| `cleanup.retention` / `call.cleanup_recordings` | daily | Purge expired uploads/voice recordings & idempotency keys |
+
+Other handlers: `notification.deliver` (SMS/WhatsApp dispatch with retries).
+
+---
+
+## Real-Time Events (WebSocket)
+
+- Endpoint: `ws(s)://…/api/v1/ws` (legacy `/ws` also mounted). Auth via the `Sec-WebSocket-Protocol: bearer,<token>` subprotocol or `?token=` — identity **always** comes from the verified token; client-supplied identity params are ignored. Origin checked against `CORS_ORIGINS`.
+- Clients `SUBSCRIBE` to topics; delivery is filtered server-side by role, jurisdiction and ownership (`services/websocket_manager.py`).
+- Standardised event catalogue in `services/events.py` — domain events (`report.*`, `case.*`, `vet.*`, `sample.*`, `lab.*`, `outbreak.*`, `alert.*`, `notification.*`, `sync.*`) plus the full IVR call lifecycle (`call.started` → `call.completed`), each carrying both a `domain.event` name and the legacy `UPPER_SNAKE` `type` for backwards compatibility.
+- Frontend shows a live connection banner (`CONNECTED`, `RECONNECTING`, `OFFLINE`, `SYNCING`).
+
+---
+
+## Machine Learning
+
+- **Canonical engine:** `backend/services/ml_service.py` — every ML endpoint (predict, outbreak, forecast, cluster, model card, performance) lives in the main backend. `ml-backend/main.py` is an optional thin wrapper that mounts the same router for separate deployment; there is exactly one implementation.
+- **Models:** `RandomForestClassifier` (class-weighted) + `IsolationForest` for anomaly-based outbreak signals, trained by `ml-backend/train_model.py`. The shipped `model_card.json` honestly declares `training_data_type: SYNTHETIC`, `validation_status: NOT_VALIDATED_SYNTHETIC` — predictions carry insufficient-data and labels guards.
+- **Offline browser fallback:** `public/model_weights.json` + `services/LocalMLService.ts` keep the AI early-warning screen working with no backend; ONNX Runtime WASM is bundled under `public/wasm/`.
+- Endpoints (canonical + legacy aliases): `POST /api/v1/ml/predict`, `POST /api/v1/ml/outbreak-detection`, `POST /api/v1/ml/forecast`, `POST /api/v1/ml/cluster`, `GET /api/v1/ml/model-card`, `GET /api/v1/ml/model-performance`.
+
+---
+
+## Frontend (React 19 PWA)
+
+- **Stack:** React 19, TypeScript, Vite 8, Tailwind 4, React Router 7, Recharts, Leaflet/react-leaflet, lucide-react; PWA via `vite-plugin-pwa` (Workbox precache + runtime caching for ML assets, GeoJSON, OSM tiles and `/api` responses with `NetworkFirst`).
+- **Dedicated role portals:** `/login` hub and separate login/signup pages per role (`/login/farmer`, `/login/veterinary`, `/login/laboratory`, `/login/government` with aliases), plus a `/signup` hub. Each portal offers real credential login and (when the server enables it) **1-tap demo login** (`POST /api/v1/auth/demo-login/{role}`).
+- **16 authenticated modules:** Dashboard, Farmer Portal, Disease Surveillance, GIS Risk Map, AI Early Warning, Case Reporting, Animal Health, Vet Response, Lab Management (dashboard, sample registration/registry/details), Vaccination Management (dashboard, campaigns, registry, record), Alerts & Notifications, Multilingual management, Offline Sync, Disease Info, Analytics, Administration.
+- **Voice-first farmer experience:** `PersistentVoiceAssistant.tsx` — persistent floating mic, multi-turn Web Speech STT/TTS, server intent extraction (`/api/v1/voice/intent`) for `REPORT_DISEASE`, `REQUEST_VETERINARIAN`, `VIEW_ANIMALS`, `CHECK_VACCINATION`, `CHECK_LAB_RESULT`, `SYNC_DATA`, `GET_DISEASE_INFORMATION`; write actions require explicit voice/click confirmation and are sent with an `Idempotency-Key`.
+- **Offline speech-to-text:** `workers/whisperWorker.ts` runs quantised `Xenova/whisper-tiny` ONNX fully in-browser (models under `public/models/`), enabling field voice reports with no network.
+- **Maps:** `PashuMap.tsx` uses Google Maps when `VITE_GOOGLE_MAPS_API_KEY` is set and otherwise degrades to the embedded Leaflet GIS view (Maharashtra GeoJSON layers in `public/`).
+- **8-language UI:** complete, key-identical dictionaries for **English, Hindi, Marathi, Telugu, Kannada, Gujarati, Tamil, Bengali** (`locales/*.ts`) with a multilingual management screen and voice-assistant support in each language.
+- **API layer:** `services/apiAuth.ts` wraps every same-origin `/api/...` fetch with bearer auth, transparent refresh-token rotation on 401, and session-expiry events; the Vite dev server proxies `/api` and `/ws` to the backend (`ML_BACKEND_URL`, default `http://127.0.0.1:8000`).
+
+---
+
+## Offline-First Synchronisation
+
+- All writes made offline are queued in **IndexedDB** (`services/db/IndexedDBService.ts`) and pushed via `POST /api/v1/sync/pull|push` with per-item idempotency keys and version numbers.
+- The backend records `SyncEvent`s and persists genuine `SyncConflict`s (version mismatches) for explicit resolution (`GET /api/v1/sync/conflicts`, `POST /api/v1/sync/conflicts/{id}/resolve`) instead of last-write-wins data loss.
+- Replayed pushes are idempotent (deduplicated server-side); the Sync screen (`/offline`) surfaces queue state, conflicts and last-sync time.
+
+---
+
+## Roles & RBAC
+
+Six roles with strict, server-enforced jurisdiction (district scoping is never taken from client input):
+
+| Role | Primary capabilities | Explicitly restricted |
+| --- | --- | --- |
+| **FARMER** | Voice assistant, register animals/herds, report sick animals, request vet, view vaccinations & lab results | No administrative or state-wide surveillance access |
+| **VETERINARIAN** | Dispatch queue, accept/reject cases, status transitions, visits, clinical notes, order lab samples | Cannot verify lab results or change state policy |
+| **LAB_TECHNICIAN** | Receive samples, custody chain, RT-PCR/ELISA test entry, result verification for surveillance release | No field veterinary triage |
+| **DISTRICT_OFFICER** | District risk monitoring, containment tracking, vet workload oversight | Cannot widen own jurisdiction (server-tested) |
+| **STATE_OFFICER** | State-wide surveillance, campaigns, outbreak status, NADRES comparison, GIS hotspots | — |
+| **SYSTEM_ADMIN** | User verification/activation, audit investigation, configuration | Unrestricted |
+
+Signup is role-scoped (`/api/v1/auth/signup/{farmer|vet|lab|government}`); elevated roles cannot self-escalate (tested), passwords require strength minimums, and accounts can require admin verification.
+
+---
+
+## Demo Accounts
+
+There are **no hardcoded passwords anywhere** (the legacy bypass passwords were removed and are *actively rejected* by tests). Demo access is opt-in and always labelled `is_demo = true`:
+
+1. Set in `.env`:
+   ```bash
+   DATA_MODE=hybrid            # or "demo" — production forces "live" and refuses demo data
+   SEED_DEMO_DATA=true
+   ENABLE_DEMO_LOGIN=true
+   DEMO_USER_PASSWORD=YourDemoPassword123   # you choose it; never committed
+   ```
+2. Start the backend once (schema bootstrap seeds the demo users), or run manually:
+   ```bash
+   python -m backend.init_db --seed-demo
+   ```
+
+| Role | Login identifier (email or phone) | Notes |
+| --- | --- | --- |
+| 🌾 Farmer | `farmer.demo@pashushield.local` / `9000000001` | Demo farm, herd & animals in Pune (Shirur) |
+| 👨‍⚕️ Veterinarian | `vet.demo@pashushield.local` / `9000000002` | Available profile, 40 km radius, Cattle/Buffalo |
+| 🧪 Lab Technician | `lab.demo@pashushield.local` / `9000000003` | Demo diagnostic laboratory |
+| 🏛️ District Officer | `district.demo@pashushield.local` / `9000000004` | Pune district scope |
+| 🏛️ State Officer | `state.demo@pashushield.local` / `9000000005` | State-wide surveillance |
+| 🛠️ System Admin | `admin.demo@pashushield.local` / `9000000006` | Administration & audit |
+
+Password for all of the above = **`DEMO_USER_PASSWORD`** from your `.env`. The login portals also expose **1-tap demo login** buttons that call the gated `demo-login` endpoint (no password entry).
+
+> `DATA_MODE=live` (required in production) refuses demo seeding and demo login outright; `DATA_MODE=hybrid` marks demo rows so they never contaminate surveillance figures.
+
+---
+
+## End-to-End Workflow
+
+```
+FARMER (app / voice / phone call IVR)
+  │  "My cow has fever and blisters" — or — Twilio DTMF survey
+  ▼
+INTENT / SURVEY FINALISATION  →  DiseaseReport created (idempotent, source-tagged)
+  ▼
+CLINICAL TRIAGE ENGINE (rule-based, disclaimed)
+  │  risk: LOW→CRITICAL · urgency: ROUTINE/URGENT/EMERGENCY
+  ▼
+DISPATCH ENGINE  →  proximity-ranked vets receive offers (real-time WebSocket)
+  │  offer expires if unaccepted (worker job)
+  ▼
+VETERINARIAN ACCEPTS  →  ASSIGNED → EN_ROUTE → ON_SITE → visits recorded
+  ▼
+LAB SAMPLE ORDERED  →  custody chain → tests (RT-PCR/ELISA/serology) → VERIFIED
+  ▼
+ALERT ENGINE / OUTBREAK DETECTION  →  district-scoped alerts (worker-scheduled)
+  ▼
+NOTIFICATIONS  →  SMS (DLT templates) / WhatsApp (signed webhook receipts) / in-app
+```
+
+---
+
+## Local Setup & Running
+
+**Prerequisites:** Node.js ≥ 20.19 and npm · Python ≥ 3.11 with pip.
+
+### 1. Backend (port 8000)
+
 ```bash
-npm install --ignore-scripts
+python -m venv .venv && source .venv/bin/activate     # optional but recommended
+pip install -r requirements-dev.txt                   # backend deps + pytest + ruff
+
+cp .env.example .env                                  # dev defaults are safe (SQLite, ephemeral JWT secrets)
+python -m uvicorn backend.main:app --host 0.0.0.0 --port 8000
 ```
 
-2. **Install Backend Dependencies**:
+- Dev defaults: SQLite (`./pashu_shield.db`), auto-created schema, ephemeral JWT secrets (a warning is logged), `docs` at `http://localhost:8000/docs`.
+- Health probes: `GET /live` · `GET /ready` (DB + ML status) · `GET /health` (full detail).
+- Optional demo data: see [Demo Accounts](#demo-accounts).
+- Optional PostGIS: point `DATABASE_URL` at `postgresql+asyncpg://…` and run `alembic upgrade head`.
+
+### 2. Frontend (port 5173)
+
 ```bash
-pip install fastapi uvicorn pydantic scikit-learn pandas numpy joblib sqlalchemy aiosqlite python-jose[cryptography] bcrypt websockets httpx python-multipart email-validator
+npm install --ignore-scripts      # skips the optional sharp native download
+npm run dev -- --host 0.0.0.0     # proxies /api and /ws to the backend
 ```
 
-3. **Start the FastAPI Backend Service (Port 8000)**:
-```bash
-python3 -m uvicorn backend.main:app --host 0.0.0.0 --port 8000
-```
+Open `http://localhost:5173`. With no backend running, the PWA still boots in offline mode (IndexedDB + browser ML fallback + cached GIS data).
 
-4. **Start the Vite Frontend (Port 5173)**:
-```bash
-npm run dev -- --host 0.0.0.0
-```
-
-Access the application in your browser at `http://localhost:5173`.
-
----
-
-## 6. Docker Deployment
-
-Deploy the full stack (PostgreSQL + PostGIS, Redis, FastAPI Backend, Background Worker, and Nginx Frontend) with one command:
+### 3. Optional: separate ML service
 
 ```bash
-docker-compose up --build -d
-```
-
-### Checking Services
-```bash
-docker-compose ps
-docker-compose logs -f backend
+PYTHONPATH=. python -m uvicorn ml-backend.main:app --port 8100   # mounts the canonical ML router
 ```
 
 ---
 
-## 7. Running Tests
+## Configuration & Environments
 
-### Backend Automated Test Suite
-```bash
-PYTHONPATH=. pytest tests/test_backend.py -v
-```
+All configuration lives in environment variables — see [`.env.example`](.env.example) for every variable with comments. Rules enforced by `backend/config.py::validate_for_environment`:
 
-### Frontend TypeScript Verification & Smoke Suite
-```bash
-npm run typecheck
-npm run smoke
-```
+- **No secret has a hardcoded default.** Dev/test generates ephemeral secrets with a warning; **production/staging refuse to start** without `JWT_SECRET` + `JWT_REFRESH_SECRET` (≥ 32 chars, distinct), an explicit `CORS_ORIGINS` allow-list (no `*`), PostgreSQL (`DATABASE_URL`), `JOB_BACKEND=worker`, `RATE_LIMIT_BACKEND=redis`, and `DATA_MODE=live`.
+- **`ENVIRONMENT`:** `development | test | staging | production` — production disables `/docs`, enables HTTPS redirect, and rejects mock/dev adapters (`dev_log` SMS/WhatsApp, mock telephony, demo login/seeding, unscanned uploads).
+- **`DATA_MODE`:** `live` (real data only) · `hybrid` (real + clearly-labelled demo rows) · `demo` (evaluation).
+- **Provider selection is explicit:** SMS (`none|dev_log|fast2sms`), WhatsApp (`none|dev_log|whatsapp_cloud_api`), translation (`local|google`), routing (`none|osrm`), weather (`open_meteo|none`), labs, NADRES/government feeds, telephony (`twilio|mock`), STT/AI summary (optional OpenAI).
+- Validation failures list every fatal problem at startup — the process never silently downgrades.
 
 ---
 
-## 8. External API Credentials & Legal Requirements
+## Docker Deployment
 
-The following integrations use standard provider abstractions. In sandbox and development modes, high-fidelity mock adapters provide realistic behaviors. Live institutional connections require official credentials:
+One command brings up the full stack — **PostGIS 15 + Redis 7 + ClamAV + one-shot Alembic migration + FastAPI backend + background worker + Nginx frontend**:
 
-1. **ICAR-NIVEDI NADRES**:
-   - Requires institutional memorandum of understanding (MoU) with ICAR-NIVEDI for live API endpoints.
-   - Configured via `NADRES_API_KEY` and `NADRES_API_URL`.
-   - Development mode serves published monthly bulletin baselines clearly marked as `HISTORICAL / PUBLISHED BASELINE`.
+```bash
+cp .env.example .env        # then set at minimum:
+#   POSTGRES_PASSWORD, JWT_SECRET, JWT_REFRESH_SECRET, CORS_ORIGINS
+docker compose up --build -d
 
-2. **DAHD Livestock Census & Surveillance**:
-   - Official national reporting systems require Department of Animal Husbandry & Dairying authorization.
-   - Configured via `GOVERNMENT_API_KEY` and `GOVERNMENT_API_URL`.
+docker compose ps
+docker compose logs -f backend worker
+```
 
-3. **Google Maps API**:
-   - Requires Google Cloud console account with Maps JavaScript API enabled.
-   - Configured via `VITE_GOOGLE_MAPS_API_KEY`.
-   - When unset, Pashu-Shield automatically falls back to the embedded Leaflet GIS map.
+- `migrate` runs `alembic upgrade head` and must complete before backend/worker start.
+- The backend image runs as a non-root user with a `/live` healthcheck; uploads persist in the `uploads` volume and are ClamAV-scanned.
+- The frontend container (nginx) proxies `/api/` and `/ws` to the backend, so the browser only ever talks to one origin.
 
-4. **SMS & WhatsApp Business Cloud API**:
-   - SMS requires DLT registration (Govt. of India) and a provider API key (`SMS_API_KEY`).
-   - WhatsApp requires Meta Business Manager verification (`WHATSAPP_ACCESS_TOKEN` and `WHATSAPP_PHONE_NUMBER_ID`).
+---
+
+## Hosting (Vercel / Netlify / GitHub Pages)
+
+The SPA ships with ready static-host configs (SPA rewrites, immutable asset caching, `sw.js` revalidation, correct `.wasm` content-type):
+
+- **Vercel:** `vercel.json` · **Netlify:** `netlify.toml` (+ `public/_redirects`) · **GitHub Pages / sub-path:** `VITE_BASE_PATH=/Pashu-Shield/ npm run build`.
+- Point `VITE_API_BASE_URL` (or a same-origin proxy) at your backend; with it empty the app uses relative `/api`.
+- Twilio webhooks always target the **backend** host (`PUBLIC_API_BASE_URL`), not the static host.
+
+---
+
+## Testing & CI
+
+### Backend (59 tests)
+
+```bash
+PYTHONPATH=. pytest tests -v            # API/RBAC + services + telephony suites (SQLite, temp DB)
+ruff check backend tests                # lint
+alembic upgrade head && alembic check   # migrations (PostGIS used in CI)
+```
+
+Suites cover: auth & refresh-token rotation/reuse detection, RBAC denial and jurisdiction-widening prevention, report→triage→case→dispatch pipeline, idempotent report submission, lab custody/verification, sync conflicts, surveillance/GIS **no-fabricated-data** guarantees, upload validation, production config rejection, and the full IVR flow (signature validation, DTMF survey, duplicate webhooks, vet bridging & fallback, recordings/transcripts RBAC, call state machine).
+
+### Frontend
+
+```bash
+npm run typecheck      # tsc -b
+npm run lint           # oxlint
+npm run build          # production bundle
+npm run smoke          # build + headless jsdom smoke test rendering every route (fake-indexeddb)
+```
+
+### CI (`.github/workflows/ci.yml`)
+
+- **frontend job:** `npm ci --ignore-scripts` → typecheck → lint → build → headless route smoke test.
+- **backend job:** ruff → pytest (SQLite) → Alembic upgrade/check/downgrade/upgrade on **PostGIS 15** service → production-config refusal check → secret scan (no committed `.env`, no private keys).
+
+Manual end-to-end IVR check against a real Twilio number: `scripts/ivr_smoke.py` (see [IVR_SETUP.md](IVR_SETUP.md)).
+
+---
+
+## Security Posture
+
+- **Auth:** bcrypt (configurable rounds), short-lived access tokens (15 min), rotating refresh tokens (14 d) with reuse detection, per-user sessions with server-side revocation, login attempt lockout.
+- **Authorisation:** `require_roles` dependencies on every router; district/taluka jurisdiction enforced server-side; ownership-scoped downloads; farmer PII (phone) masked without permission.
+- **Webhooks:** Twilio `X-Twilio-Signature` (fail-closed) and WhatsApp `X-Hub-Signature-256`; optional shared-secret header for non-provider callers.
+- **Input & uploads:** Pydantic validation, request-size caps, coordinate/unit sanity checks, magic-byte file validation + ClamAV, random storage keys, retention purges.
+- **Auditing:** append-only `AuditLog` for security-relevant actions, request-ID correlation (`X-Request-ID`) and structured JSON logs.
+- **Rate limiting:** per-IP/user with memory (dev) or Redis (production) backends.
+- **Ops hardening:** production refuses insecure starts (see [Configuration](#configuration--environments)); CI scans for committed secrets.
+
+---
+
+## External Integrations
+
+Pashu-Shield never fakes external data. Each adapter reports an honest status (`LIVE / CONFIGURED / MOCK / UNAVAILABLE`) via `GET /api/v1/external/data-sources`, and the UI shows *configuration required* instead of placeholder numbers. Full matrix in [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md).
+
+| Integration | Env vars | When unconfigured |
+| --- | --- | --- |
+| ICAR-NIVEDI NADRES bulletins | `NADRES_API_URL`, `NADRES_API_KEY` | No surveillance numbers shown; status `UNAVAILABLE` |
+| DAHD / state surveillance feed | `GOVERNMENT_API_URL`, `GOVERNMENT_API_KEY` | Same as above |
+| Weather (Open-Meteo, keyless) | `WEATHER_PROVIDER=open_meteo` | Weather factors omitted from risk context |
+| Lab LIMS | `LAB_PROVIDER`, `LAB_API_URL`, `LAB_API_KEY` | Manual entry (`source=MANUAL_ENTRY`) |
+| SMS (Fast2SMS + DLT templates) | `SMS_PROVIDER=fast2sms`, `SMS_API_KEY`, `SMS_DLT_TEMPLATE_IDS` | Notifications stay `PENDING`/`FAILED` |
+| WhatsApp Cloud API | `WHATSAPP_PROVIDER=whatsapp_cloud_api`, token/phone-ID/app-secret | Same; webhook requires valid signature |
+| Google Cloud Translation | `TRANSLATION_PROVIDER=google`, `TRANSLATION_API_KEY` | Local glossary fallback, labelled partial |
+| OSRM routing | `ROUTING_PROVIDER=osrm`, `OSRM_URL` | Straight-line distance labelled; `ETA_UNAVAILABLE` |
+| Twilio voice / IVR | `TWILIO_*`, `PUBLIC_API_BASE_URL`, `IVR_ENABLED` | `/api/v1/telephony/*` returns 503 |
+
+Live status is confirmed by the worker's scheduled `ingest.*` / `health.providers` jobs (`last_success_at` on the data-sources endpoint). Institutional connections (NADRES, DAHD) additionally require official MoUs/authorisation.
+
+---
+
+## License & Attribution
+
+Built for Maharashtra livestock-health operations. Bundled assets: OpenStreetMap tiles & Leaflet (BSD-2), Whisper-tiny ONNX weights (MIT), ONNX Runtime Web (MIT), Twilio SDK (MIT). Model weights shipped in `ml-backend/models/` are trained on **synthetic** data for development only — see `ml-backend/models/model_card.json`.
