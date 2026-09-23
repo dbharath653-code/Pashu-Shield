@@ -1,231 +1,130 @@
-import uuid
 from datetime import datetime
-from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException
+from typing import Optional
+
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+
 from backend.database import get_db
-from backend.models import DiseaseReport, VeterinaryCase, Alert, User, UserRole
-from backend.schemas import DiseaseReportCreate
-from backend.security import get_current_user, get_current_user_optional
-from backend.services.triage_service import TriageEngine
-from backend.services.dispatch_service import DispatchEngine
-from backend.services.websocket_manager import ws_manager
-from backend.services.notification_service import NotificationService
+from backend.models import DiseaseReport, User, UserRole, WorkflowEvent
+from backend.schemas import DiseaseReportCreate, ReportVerifyRequest
+from backend.security import (Permission, ensure_can_access_record, forbidden, jurisdiction_scope, require_permission,
+                              resolve_district_filter)
+from backend.services import idempotency
+from backend.services.alert_engine import raise_alert
 from backend.services.audit_service import AuditService
+from backend.services.events import Event
+from backend.services.rate_limit import enforce
+from backend.services.report_service import serialize_report, submit_report
+from backend.services.workflow import normalize_status, transition
 
 router = APIRouter(prefix="/reports", tags=["Disease Reports & Triage"])
+
+
+def scoped_reports_query(user: User, district: Optional[str]):
+    stmt = select(DiseaseReport).where(DiseaseReport.deleted_at.is_(None))
+    if user.role == UserRole.FARMER.value:
+        return stmt.where(DiseaseReport.user_id == user.id)
+    if user.role in (UserRole.LAB_TECHNICIAN.value, UserRole.LAB_ADMIN.value):
+        raise forbidden()
+    d = resolve_district_filter(user, district)
+    if d:
+        stmt = stmt.where(DiseaseReport.district == d)
+    scope = jurisdiction_scope(user)
+    if scope["taluka"]:
+        stmt = stmt.where(DiseaseReport.taluka == scope["taluka"])
+    return stmt
+
 
 @router.get("")
 async def get_reports(
     district: Optional[str] = None,
     species: Optional[str] = None,
     status: Optional[str] = None,
+    verification_status: Optional[str] = None,
+    since: Optional[datetime] = None,
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
-    current_user: Optional[User] = Depends(get_current_user_optional)
+    current_user: User = Depends(require_permission(Permission.REPORT_READ)),
 ):
-    stmt = select(DiseaseReport).order_by(DiseaseReport.created_at.desc())
-    
-    if current_user and current_user.role == UserRole.FARMER.value:
-        stmt = stmt.where(DiseaseReport.user_id == current_user.id)
-    elif district:
-        stmt = stmt.where(DiseaseReport.district == district)
-        
+    """Paginated, jurisdiction-scoped list. Returns a JSON array (legacy contract) with
+    pagination metadata in X-Total-Count / X-Next-Offset headers."""
+    from fastapi.responses import JSONResponse
+    stmt = scoped_reports_query(current_user, district)
     if species:
         stmt = stmt.where(DiseaseReport.species == species)
     if status:
-        stmt = stmt.where(DiseaseReport.status == status)
-        
-    result = await db.execute(stmt)
-    reports = result.scalars().all()
-    
-    return [
-        {
-            "id": r.id,
-            "reportNumber": r.report_number,
-            "date": r.created_at.strftime("%Y-%m-%d"),
-            "species": r.species,
-            "numberAffected": r.number_affected,
-            "numberDead": r.number_dead,
-            "district": r.district,
-            "taluka": r.taluka,
-            "village": r.village,
-            "symptoms": r.symptoms or [],
-            "status": r.status,
-            "disease": r.suspected_disease,
-            "triageRiskLevel": r.triage_risk_level,
-            "triageUrgency": r.triage_urgency,
-            "triageRecommendations": r.triage_recommendations,
-            "source": r.source
-        }
-        for r in reports
-    ]
+        stmt = stmt.where(DiseaseReport.status == normalize_status(status))
+    if verification_status:
+        stmt = stmt.where(DiseaseReport.verification_status == verification_status)
+    if since:
+        stmt = stmt.where(DiseaseReport.created_at >= since.replace(tzinfo=None))
+    total = (await db.execute(select(func.count()).select_from(stmt.subquery()))).scalar() or 0
+    rows = (await db.execute(stmt.order_by(DiseaseReport.created_at.desc()).offset(offset).limit(limit))).scalars().all()
+    headers = {"X-Total-Count": str(total)}
+    if offset + len(rows) < total:
+        headers["X-Next-Offset"] = str(offset + len(rows))
+    return JSONResponse([serialize_report(r) for r in rows], headers=headers)
+
 
 @router.post("")
 async def submit_disease_report(
     req: DiseaseReportCreate,
+    request: Request,
+    idempotency_key: Optional[str] = Header(default=None, alias="Idempotency-Key"),
     db: AsyncSession = Depends(get_db),
-    current_user: Optional[User] = Depends(get_current_user_optional)
+    current_user: User = Depends(require_permission(Permission.REPORT_CREATE)),
 ):
-    # 1. Clinical Triage Evaluation
-    triage = TriageEngine.evaluate(
-        species=req.species,
-        symptoms=req.symptoms,
-        number_affected=req.number_affected,
-        number_dead=req.number_dead,
-        temperature=req.temperature,
-        district=req.district
-    )
-    
-    report_id = f"REP-{uuid.uuid4().hex[:8].upper()}"
-    report_num = f"MH-{req.district[:3].upper()}-{datetime.utcnow().strftime('%y%m%d')}-{uuid.uuid4().hex[:4].upper()}"
-    
-    user_id = current_user.id if current_user else f"ANON-{uuid.uuid4().hex[:6]}"
-    reporter_name = current_user.full_name if current_user else "Field Reporter"
-    reporter_role = current_user.role if current_user else "FARMER"
-    
-    report = DiseaseReport(
-        id=report_id,
-        report_number=report_num,
-        user_id=user_id,
-        reporter_name=reporter_name,
-        reporter_role=reporter_role,
-        species=req.species,
-        number_affected=req.number_affected,
-        number_dead=req.number_dead,
-        symptoms=req.symptoms,
-        temperature=req.temperature,
-        district=req.district,
-        taluka=req.taluka or "Taluka-1",
-        village=req.village,
-        lat=req.lat or 18.5204,
-        lng=req.lng or 73.8567,
-        suspected_disease=req.suspected_disease or "Unknown",
-        status="Suspected",
-        triage_urgency=triage["urgency"],
-        triage_risk_level=triage["risk_level"],
-        triage_recommendations=triage["recommendations"],
-        notes=req.notes,
-        source="LIVE"
-    )
-    db.add(report)
-    
-    # 2. Automatically dispatch case if triage indicates veterinary evaluation is required
-    created_case = None
-    assigned_vet = None
-    if triage["requires_veterinary_dispatch"] or req.number_dead > 0 or triage["risk_level"] in ["HIGH", "CRITICAL"]:
-        eligible_vets = await DispatchEngine.find_eligible_veterinarians(
-            db, district=req.district, lat=req.lat, lng=req.lng
-        )
-        assigned_vet_id = eligible_vets[0]["vet_id"] if eligible_vets else None
-        if eligible_vets:
-            assigned_vet = eligible_vets[0]
+    await enforce("report", current_user.id)
+    key = idempotency_key or req.idempotency_key
+    replay = await idempotency.begin(current_user.id, key, "POST", "/reports", req.model_dump(mode="json", exclude={"idempotency_key"}))
+    if replay:
+        return {**replay["body"], "idempotent_replay": True}
+    try:
+        result = await submit_report(db, req, current_user, source="VOICE" if req.channel == "VOICE" else "LIVE", request=request)
+    except Exception:
+        await idempotency.abandon(current_user.id, key)
+        raise
+    await idempotency.complete(current_user.id, key, 200, result)
+    return result
 
-        case_id = f"VET-{uuid.uuid4().hex[:8].upper()}"
-        case_num = f"CAS-{req.district[:3].upper()}-{datetime.utcnow().strftime('%y%m%d')}-{uuid.uuid4().hex[:4].upper()}"
-        
-        created_case = VeterinaryCase(
-            id=case_id,
-            case_number=case_num,
-            report_id=report.id,
-            farmer_id=user_id,
-            assigned_vet_id=assigned_vet_id,
-            status="ASSIGNED" if assigned_vet_id else "REPORTED",
-            priority=triage["risk_level"],
-            species=req.species,
-            district=req.district,
-            village=req.village,
-            lat=req.lat or 18.5204,
-            lng=req.lng or 73.8567,
-            reported_problem=f"{len(req.symptoms)} symptoms reported: {', '.join(req.symptoms)}",
-            risk_score=85.0 if triage["risk_level"] == "CRITICAL" else (65.0 if triage["risk_level"] == "HIGH" else 40.0),
-            assigned_at=datetime.utcnow() if assigned_vet_id else None
-        )
-        db.add(created_case)
 
-    # 3. Create high priority system alert if critical
-    if triage["risk_level"] in ["HIGH", "CRITICAL"]:
-        alert_id = f"ALT-{uuid.uuid4().hex[:8].upper()}"
-        alert = Alert(
-            id=alert_id,
-            alert_code=f"ALR-{datetime.utcnow().strftime('%y%m%d')}-{uuid.uuid4().hex[:4].upper()}",
-            type="high" if triage["risk_level"] == "CRITICAL" else "warning",
-            severity=triage["risk_level"],
-            title=f"{triage['risk_level']} Risk Alert - {req.district} - {req.suspected_disease or 'Syndromic Disease'}",
-            message=f"{req.number_affected} {req.species} affected ({req.number_dead} deaths) in village {req.village}, {req.district}.",
-            district=req.district,
-            taluka=req.taluka,
-            disease=req.suspected_disease,
-            is_broadcast=True
-        )
-        db.add(alert)
-        
+@router.get("/{report_id}")
+async def get_report(report_id: str, db: AsyncSession = Depends(get_db), current_user: User = Depends(require_permission(Permission.REPORT_READ))):
+    r = await db.get(DiseaseReport, report_id)
+    if r is None or r.deleted_at is not None:
+        # tracking ID lookup
+        r = (await db.execute(select(DiseaseReport).where(DiseaseReport.report_number == report_id))).scalars().first()
+    if r is None:
+        raise HTTPException(status_code=404, detail={"code": "REPORT_NOT_FOUND", "message": "Disease report was not found."})
+    ensure_can_access_record(current_user, owner_ids=[r.user_id], district=r.district, taluka=r.taluka)
+    history = (await db.execute(select(WorkflowEvent).where(WorkflowEvent.entity_type == "REPORT", WorkflowEvent.entity_id == r.id).order_by(WorkflowEvent.created_at))).scalars().all()
+    return {**serialize_report(r), "history": [{"from": h.from_status, "to": h.to_status, "at": h.created_at.isoformat(), "note": h.note} for h in history]}
+
+
+@router.post("/{report_id}/verify")
+async def verify_report(report_id: str, req: ReportVerifyRequest, request: Request, db: AsyncSession = Depends(get_db),
+                        current_user: User = Depends(require_permission(Permission.REPORT_VERIFY))):
+    """Veterinary confirmation (human-in-the-loop). Only vets/officers in jurisdiction."""
+    r = await db.get(DiseaseReport, report_id)
+    if r is None:
+        raise HTTPException(status_code=404, detail={"code": "REPORT_NOT_FOUND", "message": "Disease report was not found."})
+    ensure_can_access_record(current_user, district=r.district, taluka=r.taluka)
+    before = {"verification_status": r.verification_status, "disease": r.suspected_disease, "status": r.status}
+    r.verification_status = req.verification_status
+    r.verified_by_id, r.verified_at = current_user.id, datetime.utcnow()
+    if req.confirmed_disease:
+        r.suspected_disease = req.confirmed_disease
+    if req.verification_status == "VERIFIED":
+        if normalize_status(r.status) in ("VISITED", "RESULT_AVAILABLE"):
+            transition(db, "REPORT", r, "VERIFIED", current_user, note=req.notes)
+        await raise_alert(db, alert_type="HIGH_RISK_REPORT", severity="HIGH" if r.triage_risk_level != "CRITICAL" else "CRITICAL",
+                          title=f"Veterinarian-verified {r.suspected_disease} – {r.district}", message=f"Report {r.report_number} verified by a veterinarian.",
+                          dedup_key=f"verified:{r.id}", district=r.district, taluka=r.taluka, disease=r.suspected_disease,
+                          related_entity_type="REPORT", related_entity_id=r.id, evidence_level="VETERINARIAN_VERIFIED", is_demo=r.is_demo)
+    r.version += 1
+    await AuditService.for_user(db, current_user, "REPORT_VERIFIED", "REPORT", r.id, request=request, commit=False, old_value=before, new_value={"verification_status": r.verification_status, "disease": r.suspected_disease})
     await db.commit()
-    await db.refresh(report)
-
-    # 4. Trigger Real-time WebSocket Broadcast
-    await ws_manager.broadcast({
-        "type": "REPORT_CREATED",
-        "report": {
-            "id": report.id,
-            "reportNumber": report.report_number,
-            "species": report.species,
-            "district": report.district,
-            "village": report.village,
-            "riskLevel": report.triage_risk_level,
-            "disease": report.suspected_disease,
-            "created_at": report.created_at.isoformat()
-        }
-    })
-    
-    if created_case:
-        await ws_manager.broadcast({
-            "type": "CASE_CREATED",
-            "case": {
-                "id": created_case.id,
-                "caseNumber": created_case.case_number,
-                "district": created_case.district,
-                "village": created_case.village,
-                "status": created_case.status,
-                "assignedVetId": created_case.assigned_vet_id,
-                "assignedVetName": assigned_vet["full_name"] if assigned_vet else "Pending Assignment"
-            }
-        })
-        
-        # Notify Veterinarian via SMS / WhatsApp adapter
-        if assigned_vet and assigned_vet.get("phone"):
-            await NotificationService.dispatch(
-                channel="SMS",
-                recipient=assigned_vet["phone"],
-                template_name="VETERINARIAN_ASSIGNED",
-                context={
-                    "vet_name": assigned_vet["full_name"],
-                    "case_number": created_case.case_number,
-                    "vet_phone": assigned_vet.get("phone", "1962")
-                }
-            )
-
-    await AuditService.log(
-        db, action="DISEASE_REPORT_SUBMITTED", resource="REPORT", resource_id=report.id,
-        user_id=user_id, user_name=reporter_name, role=reporter_role,
-        new_value={"district": report.district, "species": report.species, "triage": triage["risk_level"]}
-    )
-
-    return {
-        "success": True,
-        "report": {
-            "id": report.id,
-            "reportNumber": report.report_number,
-            "status": report.status,
-            "district": report.district,
-            "village": report.village,
-            "species": report.species
-        },
-        "triage": triage,
-        "assignedCase": {
-            "caseId": created_case.id,
-            "caseNumber": created_case.case_number,
-            "status": created_case.status,
-            "assignedVet": assigned_vet
-        } if created_case else None
-    }
+    await Event("report.verified", {"id": r.id, "verificationStatus": r.verification_status, "disease": r.suspected_disease}, district=r.district, taluka=r.taluka, owner_id=r.user_id).publish()
+    return serialize_report(r)

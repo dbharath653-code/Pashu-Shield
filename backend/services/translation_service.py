@@ -1,6 +1,10 @@
 import httpx
-from typing import Optional, Dict, Any
+from typing import Dict, Any
 from backend.config import settings
+
+class TranslationUnavailable(Exception):
+    pass
+
 
 class TranslationProvider:
     async def translate(self, text: str, source_lang: str, target_lang: str) -> str:
@@ -20,11 +24,11 @@ class GoogleTranslationProvider(TranslationProvider):
                     return data["data"]["translations"][0]["translatedText"]
         except Exception:
             pass
-        return text
+        raise TranslationUnavailable("Google translation request failed")
 
 class LocalGlossaryFallbackProvider(TranslationProvider):
     """Accurate linguistic fallback for veterinary, animal husbandry, and UI terms."""
-    
+
     GLOSSARY: Dict[str, Dict[str, str]] = {
         "mr": {
             "cow": "गाय",
@@ -115,30 +119,42 @@ class LocalGlossaryFallbackProvider(TranslationProvider):
     async def translate(self, text: str, source_lang: str, target_lang: str) -> str:
         if source_lang == target_lang:
             return text
-            
+
         target_dict = self.GLOSSARY.get(target_lang, {})
         translated = text
         for en_term, target_term in target_dict.items():
             translated = translated.replace(en_term, target_term)
             translated = translated.replace(en_term.capitalize(), target_term)
-            
+
         return translated
 
 class TranslationService:
     def __init__(self):
-        if settings.TRANSLATION_API_KEY:
+        if settings.TRANSLATION_PROVIDER == "google" and settings.TRANSLATION_API_KEY:
             self.provider = GoogleTranslationProvider(settings.TRANSLATION_API_KEY)
         else:
             self.provider = LocalGlossaryFallbackProvider()
 
     async def translate_text(self, text: str, source_lang: str = "en", target_lang: str = "mr") -> Dict[str, Any]:
-        result = await self.provider.translate(text, source_lang, target_lang)
+        """Returns translation with explicit provenance. Glossary substitution is a partial
+        term-level fallback, NOT a full translation, and is labelled as such."""
+        status, provider = "TRANSLATED", "Google Cloud Translation API"
+        if isinstance(self.provider, GoogleTranslationProvider):
+            try:
+                result = await self.provider.translate(text, source_lang, target_lang)
+            except TranslationUnavailable:
+                result = await LocalGlossaryFallbackProvider().translate(text, source_lang, target_lang)
+                status, provider = "FALLBACK_GLOSSARY_PARTIAL", "Local veterinary glossary (provider unavailable)"
+        else:
+            result = await LocalGlossaryFallbackProvider().translate(text, source_lang, target_lang)
+            status, provider = "FALLBACK_GLOSSARY_PARTIAL", "Local veterinary glossary (no translation provider configured)"
         return {
             "original_text": text,
             "translated_text": result,
             "source_lang": source_lang,
             "target_lang": target_lang,
-            "provider": "Google Cloud Translation API" if settings.TRANSLATION_API_KEY else "Pashu-Shield Verified Veterinary Terminology Glossary"
+            "provider": provider,
+            "status": status,
         }
 
 translation_service = TranslationService()

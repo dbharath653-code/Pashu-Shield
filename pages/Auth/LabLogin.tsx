@@ -36,8 +36,7 @@ export default function LabLogin() {
   };
 
   const handlePreFillDemo = () => {
-    setIdentifier("lab@pashushield.gov.in");
-    setPassword("Lab@123");
+    setIdentifier("lab.demo@pashushield.local");
     setErrorMsg(null);
   };
 
@@ -82,10 +81,10 @@ export default function LabLogin() {
                 <span>Authorized Laboratory Credentials</span>
               </p>
               <p className="text-[11px] text-purple-300/90 mt-1 font-mono">
-                Email/Mobile: <b>lab@pashushield.gov.in</b> (or 9823077777)
+                Email/Mobile: <b>lab.demo@pashushield.local</b> (or 9000000003)
               </p>
               <p className="text-[11px] text-purple-300/90 font-mono">
-                Password: <b>Lab@123</b>
+                Password: <i>demo password configured by the server administrator (DEMO_USER_PASSWORD)</i>
               </p>
               <p className="text-[10px] text-purple-400 mt-1">
                 Pooja Shinde (DIS Pune, ISO/IEC 17025 Accredited)

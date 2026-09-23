@@ -60,7 +60,6 @@ export default function GovernmentSignup() {
     setJurisdiction("Maharashtra State");
     setDistrict("Pune");
     setRole("STATE_OFFICER");
-    setPassword("Govt@123");
     setErrorMsg(null);
   };
 

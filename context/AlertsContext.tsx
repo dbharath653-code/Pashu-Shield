@@ -47,84 +47,40 @@ export function AlertsProvider({ children }: { children: React.ReactNode }) {
       await dbService.init();
       const loadedAlerts = await dbService.getAll("alerts");
 
-      if (loadedAlerts.length === 0) {
-        const mockAlerts: SystemAlert[] = [
-          {
-            id: "ALT-2026-001",
-            type: "OUTBREAK",
-            priority: "CRITICAL",
-            disease: "Foot-and-Mouth Disease",
-            district: "Pune",
-            taluka: "Shirur",
-            village: "Example Village",
-            affectedAnimals: 47,
-            suspectedCases: 18,
-            deaths: 2,
-            recovered: 0,
-            vaccinationCoverage: 42,
-            riskScore: 94,
-            confidence: 91,
-            source: "AI Early Warning + Field Reports",
-            detectedAt: new Date(Date.now() - 3600000 * 2).toISOString(),
-            status: "NEW",
-            escalationLevel: "Taluka Officer",
-            latitude: 18.826,
-            longitude: 74.376,
-            read: false,
-          },
-          {
-            id: "ALT-2026-002",
-            type: "CLUSTER",
-            priority: "HIGH",
-            disease: "Lumpy Skin Disease",
-            district: "Nashik",
-            taluka: "Sinnar",
-            village: "Pimplad",
-            affectedAnimals: 31,
-            suspectedCases: 12,
-            deaths: 0,
-            recovered: 4,
-            vaccinationCoverage: 68,
-            riskScore: 82,
-            confidence: 85,
-            source: "Routine Surveillance",
-            detectedAt: new Date(Date.now() - 3600000 * 12).toISOString(),
-            status: "ACKNOWLEDGED",
-            escalationLevel: "None",
-            latitude: 19.845,
-            longitude: 73.998,
-            read: true,
-          },
-          {
-            id: "ALT-2026-003",
-            type: "VACCINATION_GAP",
-            priority: "MEDIUM",
-            disease: "PPR",
-            district: "Nagpur",
-            taluka: "Katol",
-            village: "Dorli",
-            affectedAnimals: 200,
-            suspectedCases: 0,
-            deaths: 0,
-            recovered: 0,
-            vaccinationCoverage: 31,
-            riskScore: 57,
-            confidence: 75,
-            source: "Analytics Engine",
-            detectedAt: new Date(Date.now() - 86400000).toISOString(),
-            status: "NEW",
-            escalationLevel: "None",
-            latitude: 21.272,
-            longitude: 78.586,
-            read: false,
+      // Load server-generated alerts (rule/alert engine). No fabricated alerts are seeded;
+      // an empty list is shown as empty. Cached alerts remain available offline.
+      try {
+        const res = await fetch("/api/v1/alerts?limit=100");
+        if (res.ok) {
+          const serverAlerts: any[] = await res.json();
+          const sevToPriority: Record<string, SystemAlert["priority"]> = { critical: "CRITICAL", high: "HIGH", warning: "MEDIUM", medium: "MEDIUM", info: "LOW", low: "LOW" };
+          for (const a of serverAlerts) {
+            const mapped: SystemAlert = {
+              id: a.id, type: a.alertType || a.type || "ALERT",
+              priority: sevToPriority[String(a.severity || "").toLowerCase()] || "MEDIUM",
+              disease: a.disease || "", district: a.district || "", taluka: "", village: "",
+              affectedAnimals: 0, suspectedCases: a.occurrences || 0, deaths: 0, recovered: 0,
+              vaccinationCoverage: 0, riskScore: 0, confidence: 0,
+              source: `${a.isDemo ? "DEMO · " : ""}Server alert engine (${a.evidenceLevel || "UNVERIFIED"})`,
+              detectedAt: a.createdAt, status: "NEW", escalationLevel: "None",
+              latitude: NaN, longitude: NaN, read: !!a.read,
+            };
+            const existing = loadedAlerts.find((l: SystemAlert) => l.id === mapped.id);
+            await dbService.save("alerts", existing ? { ...mapped, status: existing.status, assignedOfficer: existing.assignedOfficer, read: existing.read || mapped.read } : mapped);
           }
-        ];
-        for (const a of mockAlerts) {
-          await dbService.save("alerts", a);
         }
-        setAlerts(mockAlerts);
+      } catch {
+        // offline: fall through to the cached alerts
+      }
+      const cached = (await dbService.getAll("alerts")) as SystemAlert[];
+      // Drop legacy fabricated sample alerts from older app versions.
+      const legacy = cached.filter((a) => /^ALT-2026-00\d$/.test(a.id));
+      for (const a of legacy) await dbService.delete("alerts", a.id);
+      const real = cached.filter((a) => !/^ALT-2026-00\d$/.test(a.id));
+      if (real.length === 0) {
+        setAlerts([]);
       } else {
-        setAlerts(loadedAlerts.sort((a, b) => new Date(b.detectedAt).getTime() - new Date(a.detectedAt).getTime()));
+        setAlerts(real.sort((a, b) => new Date(b.detectedAt).getTime() - new Date(a.detectedAt).getTime()));
       }
     };
     loadData();

@@ -2,6 +2,10 @@ import { StrictMode } from "react"
 import { createRoot } from "react-dom/client"
 import "./index.css"
 import App from "./App.tsx"
+import { installApiAuth } from "./services/apiAuth"
+
+// Attach Bearer tokens / refresh on 401 for every /api request
+installApiAuth()
 
 // Register the PWA service worker for offline support
 import { registerSW } from "virtual:pwa-register"

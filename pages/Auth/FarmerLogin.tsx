@@ -36,8 +36,7 @@ export default function FarmerLogin() {
   };
 
   const handlePreFillDemo = () => {
-    setIdentifier("farmer@pashushield.gov.in");
-    setPassword("Farmer@123");
+    setIdentifier("farmer.demo@pashushield.local");
     setErrorMsg(null);
   };
 
@@ -82,10 +81,10 @@ export default function FarmerLogin() {
                 <span>Authorized Farmer Credentials</span>
               </p>
               <p className="text-[11px] text-emerald-400/90 mt-1 font-mono">
-                Mobile/Email: <b>farmer@pashushield.gov.in</b> (or 9823012345)
+                Mobile/Email: <b>farmer.demo@pashushield.local</b> (or 9000000001)
               </p>
               <p className="text-[11px] text-emerald-400/90 font-mono">
-                Password: <b>Farmer@123</b>
+                Password: <i>demo password configured by the server administrator (DEMO_USER_PASSWORD)</i>
               </p>
             </div>
             <button

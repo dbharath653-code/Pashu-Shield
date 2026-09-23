@@ -55,7 +55,6 @@ export default function LabSignup() {
     setAccreditation("NABL ISO/IEC 17025:2017 & ICAR Recognized");
     setDistrict("Pune");
     setAddress("Ganeshkhind Road, Aundh, Pune 411007");
-    setPassword("Lab@123");
     setErrorMsg(null);
   };
 

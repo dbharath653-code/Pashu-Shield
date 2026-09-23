@@ -6,28 +6,65 @@ on:
   pull_request:
 
 jobs:
-  build:
+  frontend:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-
       # --ignore-scripts skips the optional `sharp` native download pulled in by
       # @xenova/transformers, which is not needed for the browser build.
       - run: npm ci --ignore-scripts
-
       - name: Type check
         run: npm run typecheck
-
       - name: Lint
         run: npm run lint
-
       - name: Build
         run: npm run build
-
       - name: Headless smoke test (routes + offline AI fallback)
         run: node scripts/smoke.mjs
+
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgis/postgis:15-3.4
+        env:
+          POSTGRES_DB: pashu_test
+          POSTGRES_USER: pashu
+          POSTGRES_PASSWORD: ci-only-password
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U pashu -d pashu_test" --health-interval 5s --health-timeout 5s --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+      - run: pip install -r requirements-dev.txt
+      - name: Lint (ruff)
+        run: ruff check backend tests
+      - name: Unit + API tests (SQLite)
+        run: pytest -q tests
+      - name: Alembic migrations on PostGIS (upgrade / check / downgrade / upgrade)
+        env:
+          ENVIRONMENT: test
+          DATABASE_URL: postgresql+asyncpg://pashu:ci-only-password@localhost:5432/pashu_test
+          JWT_SECRET: ci-access-secret-0123456789abcdef0123456789
+          JWT_REFRESH_SECRET: ci-refresh-secret-0123456789abcdef01234567
+        run: |
+          alembic upgrade head
+          alembic check
+          alembic downgrade base
+          alembic upgrade head
+      - name: Production config refuses insecure defaults
+        run: |
+          ! ENVIRONMENT=production DATA_MODE=demo python -c "import backend.config"
+      - name: Secret scan (committed .env / private keys)
+        run: |
+          ! git ls-files | grep -E '(^|/)\.env$'
+          ! git grep -nE -- '-----BEGIN (RSA|EC|OPENSSH) PRIVATE KEY-----'

@@ -36,8 +36,7 @@ export default function VetLogin() {
   };
 
   const handlePreFillDemo = () => {
-    setIdentifier("vet@pashushield.gov.in");
-    setPassword("Vet@123");
+    setIdentifier("vet.demo@pashushield.local");
     setErrorMsg(null);
   };
 
@@ -82,10 +81,10 @@ export default function VetLogin() {
                 <span>Authorized Veterinary Credentials</span>
               </p>
               <p className="text-[11px] text-blue-300/90 mt-1 font-mono">
-                Email/Mobile: <b>vet@pashushield.gov.in</b> (or 9823054321)
+                Email/Mobile: <b>vet.demo@pashushield.local</b> (or 9000000002)
               </p>
               <p className="text-[11px] text-blue-300/90 font-mono">
-                Password: <b>Vet@123</b>
+                Password: <i>demo password configured by the server administrator (DEMO_USER_PASSWORD)</i>
               </p>
               <p className="text-[10px] text-blue-400 mt-1">
                 Dr. Sunita Deshmukh (Lic: MSVC-2018-04821, Shirur Polyclinic)

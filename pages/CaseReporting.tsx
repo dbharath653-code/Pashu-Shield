@@ -262,7 +262,8 @@ export default function CaseReporting() {
       try {
         const res = await fetch('/api/v1/reports', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          // Idempotency-Key = client report id, so a retried submission never creates a duplicate.
+          headers: { 'Content-Type': 'application/json', 'Idempotency-Key': `report-${report.id}` },
           body: JSON.stringify({
             species: report.species,
             number_affected: report.numberAffected,
@@ -272,15 +273,24 @@ export default function CaseReporting() {
             village: report.village,
             suspected_disease: report.disease,
             temperature: Number(formData.temperature) || null,
+            temperature_unit: 'C', // the form field is labelled °C
+            client_id: report.id,
             notes: formData.disease !== 'Unknown' ? `Suspected ${formData.disease}` : undefined
           })
         });
         if (res.ok) {
           const result = await res.json();
-          report.status = 'Confirmed';
+          // Submitted ≠ confirmed: veterinary/lab verification happens later in the workflow.
+          report.status = 'SUBMITTED';
           if (result.assignedCase) {
             alert(`Report successfully submitted to Veterinary Network!\nCase #${result.assignedCase.caseNumber}\nTriage: ${result.triage.risk_level} (${result.triage.urgency})\nAssigned Vet: ${result.assignedCase.assignedVet?.full_name || 'Emergency Unit'}`);
           }
+        } else if (res.status >= 500 || res.status === 429) {
+          await enqueueOfflineItem("reports", report.id, `Disease Report (${report.species} - ${report.disease})`, report);
+        } else {
+          const err = await res.json().catch(() => null);
+          alert(`Report was not accepted: ${err?.error?.message || err?.detail?.message || res.status}`);
+          return;
         }
       } catch (e) {
         console.warn('Backend report submission error:', e);

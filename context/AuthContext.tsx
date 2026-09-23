@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
+import { apiErrorMessage, clearSession, storeSession } from "../services/apiAuth";
 
 export type RoleType =
   | "FARMER"
@@ -54,16 +55,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return null;
       }
     }
-    // Default demo user is Farmer for instant ease of testing
-    return {
-      id: "FARMER-MH-001",
-      email: "farmer@pashushield.gov.in",
-      phone: "9823012345",
-      full_name: "Ramesh Tukaram Patil",
-      role: "FARMER",
-      district: "Pune",
-      village: "Walwur"
-    };
+    // No implicit default user: unauthenticated visitors must sign in.
+    return null;
   });
 
   const [wsStatus, setWsStatus] = useState<"CONNECTED" | "RECONNECTING" | "OFFLINE" | "SYNCING">("CONNECTED");
@@ -79,11 +72,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
+      const accessToken = localStorage.getItem("auth_token");
+      if (!user || !accessToken) {
+        setWsStatus("OFFLINE");
+        return;
+      }
       const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-      const wsUrl = `${protocol}//${window.location.host}/api/v1/ws?user_id=${user?.id || "anon"}&role=${user?.role || "FARMER"}&district=${user?.district || "Pune"}`;
-      
+      // Identity is derived server-side from the token (sent as a subprotocol, not in the URL).
+      const wsUrl = `${protocol}//${window.location.host}/api/v1/ws`;
+
       try {
-        ws = new WebSocket(wsUrl);
+        ws = new WebSocket(wsUrl, ["bearer", accessToken]);
 
         ws.onopen = () => {
           setWsStatus("CONNECTED");
@@ -131,39 +130,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [user]);
 
   const demoLogin = async (targetRole: RoleType) => {
+    // Only works when the backend explicitly enables demo login (never in production).
+    // No client-side fallback identity is fabricated if it is unavailable.
     try {
-      const res = await fetch(`/api/v1/auth/demo-login/${targetRole.toLowerCase()}`, {
-        method: "POST"
-      });
+      const res = await fetch(`/api/v1/auth/demo-login/${targetRole.toLowerCase()}`, { method: "POST" });
       if (res.ok) {
         const data = await res.json();
+        storeSession(data);
         setToken(data.access_token);
         setUser(data.user);
-        localStorage.setItem("auth_token", data.access_token);
-        localStorage.setItem("auth_user", JSON.stringify(data.user));
       } else {
-        const fallbackUser: AuthUser = {
-          id: `${targetRole}-DEMO`,
-          email: `${targetRole.toLowerCase()}@pashushield.gov.in`,
-          full_name: `Demo ${targetRole.replace("_", " ")}`,
-          role: targetRole,
-          district: "Pune",
-          village: "Shirur"
-        };
-        setUser(fallbackUser);
-        localStorage.setItem("auth_user", JSON.stringify(fallbackUser));
+        window.dispatchEvent(new CustomEvent("pashu_toast", { detail: { type: "error", message: "Demo login is not enabled on this server." } }));
       }
     } catch {
-      const fallbackUser: AuthUser = {
-        id: `${targetRole}-DEMO`,
-        email: `${targetRole.toLowerCase()}@pashushield.gov.in`,
-        full_name: `Demo ${targetRole.replace("_", " ")}`,
-        role: targetRole,
-        district: "Pune",
-        village: "Shirur"
-      };
-      setUser(fallbackUser);
-      localStorage.setItem("auth_user", JSON.stringify(fallbackUser));
+      window.dispatchEvent(new CustomEvent("pashu_toast", { detail: { type: "error", message: "Server unreachable — cannot sign in while offline." } }));
     }
   };
 
@@ -176,13 +156,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
       const data = await res.json();
       if (res.ok && data.access_token) {
+        storeSession(data);
         setToken(data.access_token);
         setUser(data.user);
-        localStorage.setItem("auth_token", data.access_token);
-        localStorage.setItem("auth_user", JSON.stringify(data.user));
         return { success: true, user: data.user };
       }
-      return { success: false, error: data?.detail || "Invalid credentials. Please check your username and password." };
+      return { success: false, error: apiErrorMessage(data, "Invalid credentials. Please check your username and password.") };
     } catch (err: any) {
       return { success: false, error: err.message || "Network error during login." };
     }
@@ -209,13 +188,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
       const data = await res.json();
       if (res.ok && data.access_token) {
+        storeSession(data);
         setToken(data.access_token);
         setUser(data.user);
-        localStorage.setItem("auth_token", data.access_token);
-        localStorage.setItem("auth_user", JSON.stringify(data.user));
         return { success: true, user: data.user };
       }
-      return { success: false, error: data?.detail || "Registration failed. Please check the entered fields." };
+      return { success: false, error: apiErrorMessage(data, "Registration failed. Please check the entered fields.") };
     } catch (err: any) {
       return { success: false, error: err.message || "Network error during registration." };
     }
@@ -226,11 +204,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logout = () => {
+    // Revoke the server session (best effort), then clear local credentials.
+    fetch("/api/v1/auth/logout", { method: "POST" }).catch(() => undefined);
+    clearSession();
     setToken(null);
     setUser(null);
-    localStorage.removeItem("auth_token");
-    localStorage.removeItem("auth_user");
   };
+
+  useEffect(() => {
+    const onExpired = () => {
+      setToken(null);
+      setUser(null);
+    };
+    window.addEventListener("pashu_auth_expired", onExpired);
+    return () => window.removeEventListener("pashu_auth_expired", onExpired);
+  }, []);
 
   return (
     <AuthContext.Provider
