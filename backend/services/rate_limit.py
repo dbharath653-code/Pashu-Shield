@@ -57,7 +57,10 @@ LIMITS: Dict[str, Tuple[int, int]] = {
     "external": (30, 60),
     "sync": (60, 60),
     "notify": (20, 60),
-    "ivr": (120, 60),
+    # Per IVR *call* (keyed on the provider call id, not the source IP: every Exotel
+    # webhook arrives from Exotel's own egress range). A real IVR call produces a couple of
+    # dozen webhooks; this bounds a stuck or abusive flow.
+    "ivr_call": (60, 300),
 }
 
 

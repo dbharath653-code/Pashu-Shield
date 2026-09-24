@@ -139,6 +139,10 @@ class SurveyEngine:
         village, district, taluka = await _resolve_location(db, session, location)
 
         notes_parts = [f"IVR call {session.id} (survey {survey.id})"]
+        if getattr(session, "is_emergency", False):
+            # Records what the caller asked for. Risk is still whatever triage computed and
+            # no disease is inferred from the keypress.
+            notes_parts.append("Caller reported an EMERGENCY (IVR menu 0)")
         if duration_label:
             notes_parts.append(f"Symptom duration: {duration_label}")
         else:
@@ -151,6 +155,8 @@ class SurveyEngine:
             notes_parts.append("Vaccination status: Unknown")
         if answers.get("location") is None:
             notes_parts.append("Location: not provided by caller")
+        elif isinstance(answers.get("location"), dict) and answers["location"].get("different"):
+            notes_parts.append("Location: caller is at a different location; not available from a keypad")
         notes = "; ".join(p for p in notes_parts if p)[:4000]
 
         return DiseaseReportCreate(
@@ -176,6 +182,10 @@ async def _resolve_location(db: AsyncSession, session, location: Dict[str, Any])
         farmer = await db.get(User, session.farmer_id)
     if location.get("registered") and farmer is not None:
         return (farmer.village or "Unknown"), farmer.district or "Unknown", farmer.taluka
+    if location.get("different"):
+        # The caller is somewhere else and could not state where on a DTMF line. Unknown —
+        # never a hardcoded village, taluka or district.
+        return "Unknown", "Unknown", None
     spoken = location.get("village")
     if spoken:
         if farmer is not None and farmer.village:

@@ -1,9 +1,8 @@
-"""Speech-to-text adapter for Twilio call recordings.
+"""Speech-to-text adapter for telephony call recordings (Exotel today).
 
 The existing Pashu Shield voice stack is browser Web Speech STT + the /voice/intent
-parser — it cannot consume a Twilio recording URL, so this adapter securely downloads
-the recording (provider-authenticated, never public) and optionally sends it to a
-configured STT provider.
+parser — it cannot consume a provider recording URL, so this adapter securely downloads
+the recording (never public) and optionally sends it to a configured STT provider.
 
   STT_PROVIDER unset/none -> {"status": "NOT_CONFIGURED"} (no transcript is invented)
   STT_PROVIDER=openai_whisper + STT_API_KEY -> POST /v1/audio/transcriptions

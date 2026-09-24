@@ -15,5 +15,4 @@ scikit-learn>=1.4
 numpy>=1.26
 pandas>=2.1
 joblib>=1.3
-# Official Twilio SDK: RequestValidator (webhook signatures) + TwiML generation for the IVR.
-twilio>=9.0,<10
+# No telephony SDK: the Exotel integration is plain HTTPS (httpx) + hand-rendered ExoML.

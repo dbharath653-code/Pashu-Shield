@@ -53,6 +53,8 @@ def serialize_call(session: CallSession, viewer: Optional[User] = None, *, detai
         "veterinarianId": session.veterinarian_id,
         "reportId": session.disease_report_id,
         "surveyId": session.ivr_survey_id,
+        "ivrMenuOption": session.ivr_menu_option,
+        "isEmergency": bool(session.is_emergency),
         "recordingStatus": session.recording_status,
         "hasRecording": bool(session.recording_url),
         "transcriptionStatus": session.transcription_status,
@@ -243,7 +245,7 @@ async def simulate_incoming_call(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_roles([UserRole.VETERINARIAN.value, UserRole.PARA_VET.value])),
 ):
-    """Safe demo fallback using MockTelephonyProvider — never a real Twilio call.
+    """Safe demo fallback using MockTelephonyProvider — never a real Exotel call.
     Simulates: incoming call -> language selection -> vet available/unavailable ->
     survey -> existing DiseaseReport -> existing triage -> CallbackRequest.
     All created rows carry is_simulated=true and are labelled DEMO / SIMULATED."""
@@ -266,7 +268,10 @@ async def simulate_incoming_call(
         to_phone="MOCK-IVR",
         direction="INBOUND",
         language=language,
-        district=payload.get("district") or "Pune",
+        # No hardcoded location: a simulation that is not given a district simply has none,
+        # exactly like a real call from an unregistered number.
+        district=(str(payload.get("district")).strip() or None) if payload.get("district") else None,
+        ivr_menu_option="1",
         status=call_router.INBOUND,
         recording_status="DISABLED",
         transcription_status="NOT_CONFIGURED",

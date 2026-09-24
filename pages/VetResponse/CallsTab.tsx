@@ -10,6 +10,14 @@ import { apiErrorMessage } from "../../services/apiAuth";
  * Phone numbers arrive already masked by the backend unless the viewer has PII permission.
  */
 
+/** Main-menu digit -> the label shown on the dashboard (mirrors backend services/ivr/menu.py). */
+const MENU_LABEL: Record<string, string> = {
+  "1": "Report sick animal",
+  "2": "Request veterinarian",
+  "3": "Case status",
+  "0": "Emergency",
+};
+
 type CallRow = {
   id: string;
   provider: string;
@@ -24,6 +32,8 @@ type CallRow = {
   recordingStatus: string;
   transcriptionStatus: string;
   aiSummary: string | null;
+  ivrMenuOption: string | null;
+  isEmergency: boolean;
   isSimulated: boolean;
   demoLabel: string | null;
   isActive: boolean;
@@ -182,7 +192,7 @@ export default function CallsTab() {
       const res = await fetch("/api/v1/telephony/demo/simulate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ language: "en", scenario, district: "Pune" }),
+        body: JSON.stringify({ language: "en", scenario }),
       });
       const body = await res.json();
       if (!res.ok) throw new Error(apiErrorMessage(body, `Simulation failed (${res.status})`));
@@ -237,7 +247,7 @@ export default function CallsTab() {
             onClick={() => simulate("vet_unavailable")}
             disabled={simBusy}
             className="flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed border-purple-400 text-purple-700 text-sm hover:bg-purple-50 disabled:opacity-50"
-            title="Uses MockTelephonyProvider — never a real Twilio call"
+            title="Uses MockTelephonyProvider — never a real Exotel call"
           >
             <FlaskConical size={16} /> Simulate Incoming Farmer Call
           </button>
@@ -269,12 +279,24 @@ export default function CallsTab() {
                   <span className="px-2 py-0.5 rounded bg-purple-100 text-purple-800 text-xs font-bold">DEMO / SIMULATED</span>
                 )}
                 <span className={`px-2 py-0.5 rounded text-xs font-bold ${STATUS_CLASS(detail.status)}`}>{detail.status}</span>
+                {detail.isEmergency && (
+                  <span
+                    className="px-2 py-0.5 rounded bg-red-100 text-red-800 text-xs font-bold"
+                    title="The caller pressed 0 (emergency). Clinical risk is decided by triage, not by this keypress."
+                  >
+                    CALLER REPORTED EMERGENCY
+                  </span>
+                )}
                 {riskPill(detail.triageRiskLevel)}
               </h3>
               <p className="text-sm text-gray-500 mt-1">
                 {detail.farmerName || "Unknown caller"} · {detail.callerPhone || "—"} {detail.callerMasked ? "(masked)" : ""} ·{" "}
                 {detail.village || "—"}
                 {detail.district ? `, ${detail.district}` : ""} · {detail.language || "—"} · started {time(detail.startedAt)}
+              </p>
+              <p className="text-xs text-gray-400 mt-0.5">
+                Channel: IVR ({detail.provider}) · Call ID {detail.callSid}
+                {detail.ivrMenuOption ? ` · Menu: ${MENU_LABEL[detail.ivrMenuOption] || detail.ivrMenuOption}` : ""}
               </p>
             </div>
             <button onClick={() => setDetail(null)} className="text-gray-400 hover:text-gray-700"><X size={20} /></button>
@@ -422,6 +444,7 @@ export default function CallsTab() {
             <thead className="bg-gray-50 text-xs uppercase text-gray-500">
               <tr>
                 <th className="px-4 py-3">Call</th>
+                <th className="px-4 py-3">Channel</th>
                 <th className="px-4 py-3">Farmer</th>
                 <th className="px-4 py-3">Language</th>
                 <th className="px-4 py-3">District</th>
@@ -441,6 +464,13 @@ export default function CallsTab() {
                     </div>
                     {c.isSimulated && <span className="text-[10px] font-bold text-purple-700 ml-6">{c.demoLabel}</span>}
                   </td>
+                  <td className="px-4 py-3 text-gray-500">
+                    IVR · {c.provider}
+                    {c.ivrMenuOption && (
+                      <div className="text-[10px] text-gray-400">{MENU_LABEL[c.ivrMenuOption] || c.ivrMenuOption}</div>
+                    )}
+                    {c.isEmergency && <div className="text-[10px] font-bold text-red-600">EMERGENCY</div>}
+                  </td>
                   <td className="px-4 py-3">{c.callerPhone || "—"}</td>
                   <td className="px-4 py-3">{c.language || "—"}</td>
                   <td className="px-4 py-3">{c.district || "Unknown"}</td>
@@ -451,7 +481,7 @@ export default function CallsTab() {
                 </tr>
               ))}
               {calls.length === 0 && (
-                <tr><td colSpan={8} className="px-4 py-8 text-center text-gray-400">No {sub === "active" ? "active" : ""} calls.</td></tr>
+                <tr><td colSpan={9} className="px-4 py-8 text-center text-gray-400">No {sub === "active" ? "active" : ""} calls.</td></tr>
               )}
             </tbody>
           </table>
