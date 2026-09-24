@@ -1,9 +1,9 @@
 # Pashu-Shield — Livestock Health Surveillance, Early-Warning & Veterinary Response Platform
 
-**Pashu-Shield** is an offline-first, real-time livestock disease surveillance, outbreak early-warning, and emergency veterinary response platform built for Maharashtra state animal-husbandry operations. It combines a React 19 PWA frontend, an async FastAPI backend with PostgreSQL/PostGIS, a background job worker, an inbound phone (Twilio IVR) channel for farmers without smartphones, and on-device ML — with a strict **honest-data policy**: surveillance figures are computed only from stored records, and unconfigured integrations are shown as *unavailable*, never substituted with fabricated numbers.
+**Pashu-Shield** is an offline-first, real-time livestock disease surveillance, outbreak early-warning, and emergency veterinary response platform built for Maharashtra state animal-husbandry operations. It combines a React 19 PWA frontend, an async FastAPI backend with PostgreSQL/PostGIS, a background job worker, an inbound phone (Exotel IVR) channel for farmers without smartphones, and on-device ML — with a strict **honest-data policy**: surveillance figures are computed only from stored records, and unconfigured integrations are shown as *unavailable*, never substituted with fabricated numbers.
 
 - **Backend API version:** 2.1.0 (`backend/config.py`)
-- **Docs:** [IVR Setup & Operations](IVR_SETUP.md) · [External Integrations Status](docs/INTEGRATIONS.md) · [Environment Variables](.env.example)
+- **Docs:** [Exotel IVR Setup & Operations](docs/EXOTEL_SETUP.md) · [External Integrations Status](docs/INTEGRATIONS.md) · [Environment Variables](.env.example)
 
 ---
 
@@ -12,7 +12,7 @@
 1. [Architecture Overview](#architecture-overview)
 2. [Repository Layout](#repository-layout)
 3. [Backend (FastAPI)](#backend-fastapi)
-4. [Inbound Telephony & IVR (Twilio)](#inbound-telephony--ivr-twilio)
+4. [Inbound Telephony & IVR (Exotel)](#inbound-telephony--ivr-exotel)
 5. [Background Worker & Scheduled Jobs](#background-worker--scheduled-jobs)
 6. [Real-Time Events (WebSocket)](#real-time-events-websocket)
 7. [Machine Learning](#machine-learning)
@@ -42,7 +42,7 @@
                                         +-------------------------+-------------------------+
                                             /api/v1 REST + /api/v1/ws WebSocket (Vite dev proxy)
                                                                       |
-              Farmer phone ──► Twilio ──► signed webhooks             |
+              Farmer phone ──► Exotel ──► ExoML webhooks               |
                                         +-----------------------------▼---------------------+
                                         |              FastAPI Backend (async, Python 3.11) |
                                         |  18 routers · ~96 REST endpoints · JWT + RBAC     |
@@ -59,10 +59,10 @@
         +--------------------+---------------+----------------+--------------------+
         |                    |                |                |                    |
 +───────▼───────+   +────────▼───────+   +──────▼──────+   +───────▼───────+    +───────▼────────+
-│ Twilio        │   │ Notifications  │   │ File store  │   │ External data │    │ ML models      │
-│ voice + TwiML │   │ Fast2SMS SMS · │   │ magic-byte  │   │ NADRES · DAHD │    │ RandomForest · │
-│ signature     │   │ WhatsApp Cloud │   │ validation +│   │ · Open-Meteo  │    │ IsolationForest│
-│ validation    │   │ API (signed)   │   │ ClamAV scan │   │ · OSRM · labs │    │ (+ browser     │
+│ Exotel        │   │ Notifications  │   │ File store  │   │ External data │    │ ML models      │
+│ voice + ExoML │   │ Fast2SMS SMS · │   │ magic-byte  │   │ NADRES · DAHD │    │ RandomForest · │
+│ shared-secret │   │ WhatsApp Cloud │   │ validation +│   │ · Open-Meteo  │    │ IsolationForest│
+│ webhook auth  │   │ API (signed)   │   │ ClamAV scan │   │ · OSRM · labs │    │ (+ browser     │
 +───────────────+   +────────────────+   +─────────────+   +───────────────+    │ fallback)      │
                                                               +────────────────+
 
@@ -88,15 +88,16 @@ CONFIGURATION_REQUIRED. Production refuses to start with insecure or mock settin
 │   ├── worker.py              # `python -m backend.worker` job runner (SKIP LOCKED safe)
 │   ├── routers/               # auth · users · animals · reports · cases · labs · vaccinations
 │   │                          # surveillance · gis · alerts · sync · voice · external · audit
-│   │                          # ml · telephony · calls · callbacks (+ external webhooks)
+│   │                          # ml · ivr · calls · callbacks (+ external webhooks)
 │   └── services/              # triage · dispatch · alert_engine · outbreak · workflow · jobs
 │                              # notification · external_data · lab_integration · ml_service
 │                              # translation · routing (OSRM) · spatial · idempotency · rate_limit
 │                              # file_service (ClamAV) · websocket_manager · events · audit
-│                              # ivr/ (prompts · question_flow · survey_engine)
-│                              # telephony/ (twiml · call_router · twilio · mock · webhooks)
+│                              # ivr/ (prompts · menu · question_flow · survey_engine)
+│                              # telephony/ (markup · exoml · call_router · exotel · mock · webhooks)
 │                              # voice/ (transcription · extraction · call_summary)
 ├── migrations/                # Alembic: 0001_baseline → 0002_postgis → 0003_telephony_ivr
+│                              #          → 0004_ivr_menu
 ├── ml-backend/                # Optional thin wrapper deploying the canonical ML router
 │   ├── main.py                # mounts backend.routers.ml — one implementation, two hosts
 │   ├── train_model.py         # RandomForest + IsolationForest training (synthetic, versioned)
@@ -118,10 +119,10 @@ CONFIGURATION_REQUIRED. Production refuses to start with insecure or mock settin
 ├── locales/                   # 8 UI dictionaries: en · hi · mr · te · kn · gu · ta · bn
 ├── public/                    # Whisper ONNX models, ONNX Runtime WASM, Maharashtra GeoJSON,
 │                              # symptom dictionary, browser ML weights, PWA icons
-├── tests/                     # pytest: test_backend.py · test_services.py · test_telephony.py
-├── scripts/                   # smoke.mjs (headless route smoke test) · ivr_smoke.py (live Twilio)
+├── tests/                     # pytest: test_backend.py · test_services.py · test_ivr_exotel.py
+├── scripts/                   # smoke.mjs (headless route smoke test) · ivr_smoke.py (live IVR)
 ├── docs/INTEGRATIONS.md       # Integration status vocabulary & per-provider configuration
-├── IVR_SETUP.md               # Twilio inbound IVR setup & operations guide
+├── docs/EXOTEL_SETUP.md       # Exotel inbound IVR setup & operations guide
 ├── docker-compose.yml         # PostGIS + Redis + ClamAV + migrate + backend + worker + nginx
 ├── Dockerfile.backend         # python:3.11-slim, non-root user, healthcheck
 ├── Dockerfile.frontend        # node:20 build → nginx:alpine with /api & /ws proxy
@@ -151,10 +152,10 @@ Async Python 3.11 service under `backend/`, mounted at `/api/v1` (legacy `/api` 
 | `alerts` | Alert feed, mark-read, notification inbox |
 | `sync` | Offline push/pull with cursors, version conflicts & resolutions |
 | `voice` | Multilingual intent parsing (`/voice/intent`) and translation |
-| `external` | NADRES bulletins, census, weather, data-source status, ingestion, WhatsApp & legacy IVR webhooks |
+| `external` | NADRES bulletins, census, weather, data-source status, ingestion, WhatsApp webhooks |
 | `audit` | Tamper-evident audit log queries (restricted roles) |
 | `ml` | Risk prediction, outbreak detection, forecasting, clustering, model card & performance |
-| `telephony` | Twilio voice webhooks (signature-validated, fail-closed): inbound, IVR, survey, status, recording |
+| `ivr` | Exotel ExoML webhooks (shared-secret verified, fail-closed): incoming, input (language · menu · survey · vet dial), status |
 | `calls` | Vet-dashboard view of IVR calls: list, detail, transcript, recording, close, demo simulate |
 | `callbacks` | Callback queue (Path B): list, accept, call-back, complete, convert to case |
 
@@ -173,33 +174,46 @@ Async Python 3.11 service under `backend/`, mounted at `/api/v1` (legacy `/api` 
 ### Data layer
 
 - **37 tables** in `backend/models.py` (users, sessions, farms, herds, animals, disease reports, cases, workflow events, vet profiles, dispatch requests, visits, laboratories, facilities, lab samples + custody + tests + result revisions, vaccination campaigns/records, surveillance observations, outbreak events, alerts, notifications, audit logs, external data records, data source status, snapshots, sync events/conflicts, idempotency, jobs, call sessions/transcripts, IVR surveys/responses, callback requests, stored files).
-- **Schema is managed by Alembic** (`migrations/versions/`): `0001_baseline` → `0002_postgis` (geometry columns & spatial indexes) → `0003_telephony_ivr`. CI runs upgrade → check → downgrade → upgrade against PostGIS 15.
+- **Schema is managed by Alembic** (`migrations/versions/`): `0001_baseline` → `0002_postgis` (geometry columns & spatial indexes) → `0003_telephony_ivr` → `0004_ivr_menu`. CI runs upgrade → check → downgrade → upgrade against PostGIS 15.
 - PostgreSQL/PostGIS in staging/production (`asyncpg`); transparent **SQLite fallback** (`aiosqlite`) for local development and tests. `create_all` is dev/test-only — production always migrates.
 
 ---
 
-## Inbound Telephony & IVR (Twilio)
+## Inbound Telephony & IVR (Exotel)
 
-Farmers without smartphones can dial a real Twilio number. Full setup guide: [IVR_SETUP.md](IVR_SETUP.md).
+Farmers without smartphones can dial a real Exotel virtual number (ExoPhone). Full setup
+guide: [docs/EXOTEL_SETUP.md](docs/EXOTEL_SETUP.md).
 
 ```
-Farmer phone ──► Twilio ──► POST /api/v1/telephony/inbound   (X-Twilio-Signature validated, fail-closed)
+Farmer phone ──► ExoPhone ──► POST /api/v1/ivr/incoming   (shared webhook secret, fail-closed)
                                     │
-                 ┌──────────────────┴───────────────────┐
-       Path A: vet available                Path B: vet unavailable
-       <Dial> the on-duty veterinarian      8-question DTMF survey in the caller's language
-       (optional recording + status         (validate · repeat · back · cancel)
-       callbacks)                                        │
-                 │                              finalize_survey() → DiseaseReport (source="IVR")
-                 │                                        → triage → CallbackRequest
-                 └──────── one CallSession row (state machine, district-scoped) ────────┘
+                        language ──► main menu
+                                    │
+   ┌────────────┬───────────────────┼────────────────────┬──────────────────┐
+   1 report     2 veterinarian      3 case status        0 emergency
+   DTMF survey  ExoML <Dial> to     own recent case      same survey, flagged
+        │       the on-duty vet     only (identified     as caller-declared
+        │       (falls back to      caller only)         emergency
+        │        the survey)                │                   │
+        └────────────┴───────────────────────┴───────────────────┘
+                                    │
+            finalize_survey() → DiseaseReportCreate → report_service.submit_report
+              → TriageEngine → VeterinaryCase → DispatchEngine → alerts/notifications
+              → CallbackRequest (priority = triage severity) → WebSocket dashboard
+                                    │
+            ──── one CallSession row (idempotent on Exotel CallSid, district-scoped) ────
 ```
+
+The telephony layer is **transport only**: it collects and validates keypad input, then calls
+the same report/triage/case/dispatch pipeline the web and offline clients use. There is no
+second case system, triage engine, notification service or database.
 
 - **Languages:** `en hi mr te kn ta gu bn` (DTMF selection, `IVR_DEFAULT_LANGUAGE` fallback).
 - **Recordings** (optional, `CALL_RECORDING_ENABLED`) can be transcribed via OpenAI Whisper (`STT_PROVIDER`) and summarised by OpenAI (`AI_SUMMARY_PROVIDER`) — when unconfigured the summary is an honest `NOT_CONFIGURED`; nothing is invented.
 - **Every call event streams to the dashboards** over the existing WebSocket manager (`CALL_STARTED` … `CALL_COMPLETED`).
-- **Mock provider** (`TELEPHONY_PROVIDER=mock`) plus `POST /api/v1/telephony/demo/simulate` (requires `DEMO_MODE`, refused in production) drive demos and the 25-test telephony suite.
-- **Signature security:** every voice webhook verifies `X-Twilio-Signature` (Twilio `RequestValidator`, fail-closed); production refuses to start without it.
+- **Mock provider** (`TELEPHONY_PROVIDER=mock`) plus `POST /api/v1/telephony/demo/simulate` (requires `DEMO_MODE`, refused in production) drive demos and the 46-test IVR suite.
+- **Webhook security:** Exotel does **not** sign ExoML/StatusCallback webhooks, so trust comes from the shared `EXOTEL_WEBHOOK_SECRET` carried in every ExoML action URL (`?t=`) or the `X-Exotel-Webhook-Secret` header, compared in constant time and **fail-closed**, plus CallSid correlation and an optional authenticated CallSid check (`EXOTEL_VERIFY_CALL_SID`). Production refuses to start without a ≥32-character secret.
+- **Honest data:** an unknown caller gets no assumed location, a phone survey never sets a `suspected_disease`, and pressing `0` records that the *caller* declared an emergency — clinical risk always comes from the triage engine.
 
 ---
 
@@ -311,7 +325,7 @@ Password for all of the above = **`DEMO_USER_PASSWORD`** from your `.env`. The l
 
 ```
 FARMER (app / voice / phone call IVR)
-  │  "My cow has fever and blisters" — or — Twilio DTMF survey
+  │  "My cow has fever and blisters" — or — Exotel DTMF survey
   ▼
 INTENT / SURVEY FINALISATION  →  DiseaseReport created (idempotent, source-tagged)
   ▼
@@ -375,7 +389,7 @@ All configuration lives in environment variables — see [`.env.example`](.env.e
 - **No secret has a hardcoded default.** Dev/test generates ephemeral secrets with a warning; **production/staging refuse to start** without `JWT_SECRET` + `JWT_REFRESH_SECRET` (≥ 32 chars, distinct), an explicit `CORS_ORIGINS` allow-list (no `*`), PostgreSQL (`DATABASE_URL`), `JOB_BACKEND=worker`, `RATE_LIMIT_BACKEND=redis`, and `DATA_MODE=live`.
 - **`ENVIRONMENT`:** `development | test | staging | production` — production disables `/docs`, enables HTTPS redirect, and rejects mock/dev adapters (`dev_log` SMS/WhatsApp, mock telephony, demo login/seeding, unscanned uploads).
 - **`DATA_MODE`:** `live` (real data only) · `hybrid` (real + clearly-labelled demo rows) · `demo` (evaluation).
-- **Provider selection is explicit:** SMS (`none|dev_log|fast2sms`), WhatsApp (`none|dev_log|whatsapp_cloud_api`), translation (`local|google`), routing (`none|osrm`), weather (`open_meteo|none`), labs, NADRES/government feeds, telephony (`twilio|mock`), STT/AI summary (optional OpenAI).
+- **Provider selection is explicit:** SMS (`none|dev_log|fast2sms`), WhatsApp (`none|dev_log|whatsapp_cloud_api`), translation (`local|google`), routing (`none|osrm`), weather (`open_meteo|none`), labs, NADRES/government feeds, telephony (`exotel|mock`), STT/AI summary (optional OpenAI).
 - Validation failures list every fatal problem at startup — the process never silently downgrades.
 
 ---
@@ -405,7 +419,7 @@ The SPA ships with ready static-host configs (SPA rewrites, immutable asset cach
 
 - **Vercel:** `vercel.json` · **Netlify:** `netlify.toml` (+ `public/_redirects`) · **GitHub Pages / sub-path:** `VITE_BASE_PATH=/Pashu-Shield/ npm run build`.
 - Point `VITE_API_BASE_URL` (or a same-origin proxy) at your backend; with it empty the app uses relative `/api`.
-- Twilio webhooks always target the **backend** host (`PUBLIC_API_BASE_URL`), not the static host.
+- Exotel webhooks always target the **backend** host (`PUBLIC_API_BASE_URL`), not the static host.
 
 ---
 
@@ -435,7 +449,7 @@ npm run smoke          # build + headless jsdom smoke test rendering every route
 - **frontend job:** `npm ci --ignore-scripts` → typecheck → lint → build → headless route smoke test.
 - **backend job:** ruff → pytest (SQLite) → Alembic upgrade/check/downgrade/upgrade on **PostGIS 15** service → production-config refusal check → secret scan (no committed `.env`, no private keys).
 
-Manual end-to-end IVR check against a real Twilio number: `scripts/ivr_smoke.py` (see [IVR_SETUP.md](IVR_SETUP.md)).
+Manual end-to-end IVR check against a running server (mocked Exotel webhooks, no account needed): `scripts/ivr_smoke.py` (see [docs/EXOTEL_SETUP.md](docs/EXOTEL_SETUP.md)).
 
 ---
 
@@ -443,7 +457,7 @@ Manual end-to-end IVR check against a real Twilio number: `scripts/ivr_smoke.py`
 
 - **Auth:** bcrypt (configurable rounds), short-lived access tokens (15 min), rotating refresh tokens (14 d) with reuse detection, per-user sessions with server-side revocation, login attempt lockout.
 - **Authorisation:** `require_roles` dependencies on every router; district/taluka jurisdiction enforced server-side; ownership-scoped downloads; farmer PII (phone) masked without permission.
-- **Webhooks:** Twilio `X-Twilio-Signature` (fail-closed) and WhatsApp `X-Hub-Signature-256`; optional shared-secret header for non-provider callers.
+- **Webhooks:** Exotel shared-secret verification (fail-closed; Exotel provides no webhook signature — see [docs/EXOTEL_SETUP.md](docs/EXOTEL_SETUP.md)) and WhatsApp `X-Hub-Signature-256`.
 - **Input & uploads:** Pydantic validation, request-size caps, coordinate/unit sanity checks, magic-byte file validation + ClamAV, random storage keys, retention purges.
 - **Auditing:** append-only `AuditLog` for security-relevant actions, request-ID correlation (`X-Request-ID`) and structured JSON logs.
 - **Rate limiting:** per-IP/user with memory (dev) or Redis (production) backends.
@@ -465,7 +479,7 @@ Pashu-Shield never fakes external data. Each adapter reports an honest status (`
 | WhatsApp Cloud API | `WHATSAPP_PROVIDER=whatsapp_cloud_api`, token/phone-ID/app-secret | Same; webhook requires valid signature |
 | Google Cloud Translation | `TRANSLATION_PROVIDER=google`, `TRANSLATION_API_KEY` | Local glossary fallback, labelled partial |
 | OSRM routing | `ROUTING_PROVIDER=osrm`, `OSRM_URL` | Straight-line distance labelled; `ETA_UNAVAILABLE` |
-| Twilio voice / IVR | `TWILIO_*`, `PUBLIC_API_BASE_URL`, `IVR_ENABLED` | `/api/v1/telephony/*` returns 503 |
+| Exotel voice / IVR | `EXOTEL_*`, `PUBLIC_API_BASE_URL`, `IVR_ENABLED` | `/api/v1/ivr/*` answers with a polite "unavailable" ExoML message |
 
 Live status is confirmed by the worker's scheduled `ingest.*` / `health.providers` jobs (`last_success_at` on the data-sources endpoint). Institutional connections (NADRES, DAHD) additionally require official MoUs/authorisation.
 
@@ -473,4 +487,4 @@ Live status is confirmed by the worker's scheduled `ingest.*` / `health.provider
 
 ## License & Attribution
 
-Built for Maharashtra livestock-health operations. Bundled assets: OpenStreetMap tiles & Leaflet (BSD-2), Whisper-tiny ONNX weights (MIT), ONNX Runtime Web (MIT), Twilio SDK (MIT). Model weights shipped in `ml-backend/models/` are trained on **synthetic** data for development only — see `ml-backend/models/model_card.json`.
+Built for Maharashtra livestock-health operations. Bundled assets: OpenStreetMap tiles & Leaflet (BSD-2), Whisper-tiny ONNX weights (MIT), ONNX Runtime Web (MIT). Model weights shipped in `ml-backend/models/` are trained on **synthetic** data for development only — see `ml-backend/models/model_card.json`.

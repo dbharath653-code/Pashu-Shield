@@ -141,7 +141,9 @@ async def process_call_recording(db: AsyncSession, payload: Dict[str, Any]):
     if session.transcription_status == "COMPLETED":
         return {"skipped": True, "reason": "already processed"}
 
-    provider = get_provider_for(session)
+    from backend.services.telephony import get_provider
+
+    provider = get_provider()
     try:
         audio, content_type = await provider.download_recording(session.recording_url)
     except Exception as e:
@@ -179,10 +181,6 @@ async def process_call_recording(db: AsyncSession, payload: Dict[str, Any]):
     await publish_call_event("call.summary_updated", session, {"provider": summary["provider"]})
     return {"status": "COMPLETED", "summary_provider": summary["provider"]}
 
-
-def get_provider_for(session):
-    from backend.services.telephony import get_provider
-    return get_provider()
 
 
 @handler("call.cleanup_recordings")

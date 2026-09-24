@@ -80,8 +80,9 @@ async def process_voice_intent(
     text = req.transcript.lower().strip()
     lang = req.language
 
-    # 1. Extract Entities
-    species = "Cattle"
+    # 1. Extract Entities. Unknown stays unknown: the assistant must never assert a species
+    #    the caller did not say, and never invent an animal count.
+    species = None
     for k, v in SPECIES_MAP.items():
         if k in text:
             species = v
@@ -94,7 +95,7 @@ async def process_voice_intent(
 
     # Extract affected count
     affected_match = re.search(r"(\d+)\s*(animals?|cows?|cattle|goats?|buffalos?|जनावर|गाय|शेळी)?", text)
-    affected_count = int(affected_match.group(1)) if affected_match and int(affected_match.group(1)) < 500 else 1
+    affected_count = int(affected_match.group(1)) if affected_match and int(affected_match.group(1)) < 500 else None
 
     # Extract dead count
     dead_match = re.search(r"(\d+)\s*(dead|died|मरण|मेली)", text)
@@ -112,12 +113,13 @@ async def process_voice_intent(
         requires_conf = True
 
         # Run triage calculation
+        # Triage needs a species and a count; with either unknown it cannot run honestly.
         triage = TriageEngine.evaluate(
             species=species,
             symptoms=extracted_symptoms,
             number_affected=affected_count,
             number_dead=dead_count
-        ) if extracted_symptoms else None
+        ) if (extracted_symptoms and species and affected_count is not None) else None
 
         action_payload = {
             "species": species,
@@ -131,7 +133,7 @@ async def process_voice_intent(
 
         if lang == "mr":
             if not extracted_symptoms:
-                fulfillment = f"{affected_count} {species} साठी अहवाल सुरू केला आहे. कृपया लक्षणे सांगा (उदा. ताप, गाठी, लाळ गळणे)."
+                fulfillment = "अहवाल सुरू केला आहे. कृपया पशूचे नाव आणि लक्षणे सांगा (उदा. ताप, गाठी, लाळ गळणे)."
             else:
                 fulfillment = f"मी {affected_count} {species} साठी अहवाल तयार केला आहे ज्यांना लक्षणे आहेत: {', '.join(extracted_symptoms)}. प्राथमिक जोखीम पातळी {triage['risk_level']} (निदान नाही). मी हा अहवाल दाखल करू का?"
         else:
@@ -140,7 +142,9 @@ async def process_voice_intent(
             else:
                 fulfillment = f"I have prepared a disease report for {affected_count} {species} with {', '.join(extracted_symptoms)}. Preliminary triage risk: {triage['risk_level']} (not a diagnosis). Shall I submit this report to the veterinary network?"
 
-        next_step = "CONFIRM_REPORT_SUBMISSION" if extracted_symptoms else "ASK_SYMPTOMS"
+        next_step = ("CONFIRM_REPORT_SUBMISSION"
+                     if (extracted_symptoms and species and affected_count is not None)
+                     else "ASK_SYMPTOMS")
 
     elif any(w in text for w in ["vet", "doctor", "hospital", "पशुवैद्यक", "डॉक्टर", "दवाखाना"]):
         intent = "REQUEST_VETERINARIAN"

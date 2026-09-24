@@ -98,9 +98,16 @@ class Question:
             return True, chosen, raw
 
         if self.kind == "speech_location":
-            # "1" => registered village (resolved later by the engine); otherwise a spoken name.
+            # DTMF path (the one ExoML supports):
+            #   "1" -> use the caller's own registered village (resolved later by the engine)
+            #   "2" -> the caller is somewhere else; the location stays UNKNOWN, it is never
+            #          assumed, and the callback note says so
+            # A spoken/transcribed village name is still accepted so the location can be
+            # supplied by any future speech input without changing this validator.
             if raw == "1":
                 return True, {"registered": True}, raw
+            if raw == "2":
+                return True, {"registered": False, "different": True}, raw
             text = re.sub(r"\s+", " ", raw).strip()
             if 1 < len(text) <= 120 and not text.isdigit():
                 return True, {"village": text}, raw

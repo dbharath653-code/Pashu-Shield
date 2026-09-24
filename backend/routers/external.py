@@ -1,4 +1,3 @@
-import hashlib
 import hmac
 import json
 import uuid
@@ -146,20 +145,3 @@ async def whatsapp_status(request: Request, db: AsyncSession = Depends(get_db)):
                     updated += 1
     return {"updated": updated}
 
-
-@webhooks.post("/ivr")
-async def ivr_callback(request: Request, db: AsyncSession = Depends(get_db)):
-    """IVR provider callback. Requires HMAC-SHA256 of the raw body in X-Signature using
-    IVR_WEBHOOK_SECRET. No IVR provider is configured by default (returns 503)."""
-    if settings.IVR_PROVIDER == "none" or not settings.IVR_WEBHOOK_SECRET:
-        raise HTTPException(status_code=503, detail={"code": "IVR_NOT_CONFIGURED", "message": "IVR provider not configured"})
-    raw = await request.body()
-    expected = hmac.new(settings.IVR_WEBHOOK_SECRET.encode(), raw, hashlib.sha256).hexdigest()
-    if not hmac.compare_digest(expected, request.headers.get("x-signature", "")):
-        raise HTTPException(status_code=401, detail={"code": "INVALID_SIGNATURE", "message": "Invalid signature"})
-    body = json.loads(raw or b"{}")
-    from backend.services.audit_service import AuditService as A
-    await A.log(db, "IVR_CALLBACK", "IVR", body.get("call_id"), new_value={"keys": sorted(body.keys())})
-    # Mapping IVR keypad/speech input to a report requires the provider's documented schema;
-    # the callback is recorded for follow-up by a call-centre operator.
-    return {"received": True, "action": "RECORDED_FOR_OPERATOR_FOLLOW_UP"}

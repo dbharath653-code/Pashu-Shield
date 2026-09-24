@@ -31,6 +31,7 @@ EVENT_NAMES = {
     # --- Inbound IVR / telephony (delivered over the existing WebSocket manager) ---------
     "call.started": ("CALL_STARTED", "call"),
     "call.language_selected": ("CALL_LANGUAGE_SELECTED", "call"),
+    "call.menu_selected": ("CALL_MENU_SELECTED", "call"),
     "call.vet_search_started": ("CALL_VET_SEARCH_STARTED", "call"),
     "call.vet_found": ("CALL_VET_FOUND", "call"),
     "call.vet_dialing": ("CALL_VET_DIALING", "call"),

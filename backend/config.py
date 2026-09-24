@@ -45,6 +45,14 @@ def _int(name: str, default: int) -> int:
         return default
 
 
+def _float(name: str, default: float) -> float:
+    raw = os.getenv(name)
+    try:
+        return float(raw) if raw not in (None, "") else default
+    except ValueError:
+        return default
+
+
 def _list(name: str, default: str = "") -> List[str]:
     return [item.strip() for item in _env(name, default).split(",") if item.strip()]
 
@@ -129,20 +137,35 @@ class Settings(BaseModel):
     WHATSAPP_VERIFY_TOKEN: str = Field(default_factory=lambda: _env("WHATSAPP_VERIFY_TOKEN"))
     WHATSAPP_API_VERSION: str = Field(default_factory=lambda: _env("WHATSAPP_API_VERSION", "v19.0"))
 
-    IVR_PROVIDER: str = Field(default_factory=lambda: _env("IVR_PROVIDER", "none").lower())
-    IVR_WEBHOOK_SECRET: str = Field(default_factory=lambda: _env("IVR_WEBHOOK_SECRET"))
-
-    # --- Telephony / inbound IVR (Twilio) -------------------------------------------------
-    # twilio (real provider) | mock (MockTelephonyProvider, demo/tests — never real calls)
-    TELEPHONY_PROVIDER: str = Field(default_factory=lambda: _env("TELEPHONY_PROVIDER", "twilio").lower())
-    TWILIO_ACCOUNT_SID: str = Field(default_factory=lambda: _env("TWILIO_ACCOUNT_SID"))
-    TWILIO_AUTH_TOKEN: str = Field(default_factory=lambda: _env("TWILIO_AUTH_TOKEN"))
-    TWILIO_PHONE_NUMBER: str = Field(default_factory=lambda: _env("TWILIO_PHONE_NUMBER"))
-    TWILIO_WEBHOOK_SECRET: str = Field(default_factory=lambda: _env("TWILIO_WEBHOOK_SECRET"))
-    # Validate X-Twilio-Signature on every voice webhook (default true; explicitly false disables).
-    TWILIO_VALIDATE_WEBHOOK: bool = Field(default_factory=lambda: _bool("TWILIO_VALIDATE_WEBHOOK", True))
-    # Public https base Twilio reaches (e.g. https://abc.ngrok-free.app) — used for webhook
-    # signature URLs and TwiML action URLs. Required for real inbound calls.
+    # --- Telephony / inbound IVR (Exotel) -------------------------------------------------
+    # exotel (real Exotel number + ExoML webhooks) | mock (MockTelephonyProvider, demo/tests
+    # — never places a real call). The provider is a transport layer only.
+    TELEPHONY_PROVIDER: str = Field(default_factory=lambda: _env("TELEPHONY_PROVIDER", "exotel").lower())
+    # Explicit "live Exotel" switch. Must be true for TELEPHONY_PROVIDER=exotel and false for
+    # mock, so a real number can never be dialled by accident and a mock can never be
+    # mistaken for a live integration.
+    EXOTEL_ENABLED: bool = Field(default_factory=lambda: _bool("EXOTEL_ENABLED", False))
+    # Exotel API credentials — HTTP Basic Auth (API Key = username, API Token = password).
+    # Backend-only; never exposed to the frontend.
+    EXOTEL_API_KEY: str = Field(default_factory=lambda: _env("EXOTEL_API_KEY"))
+    EXOTEL_API_TOKEN: str = Field(default_factory=lambda: _env("EXOTEL_API_TOKEN"))
+    EXOTEL_ACCOUNT_SID: str = Field(default_factory=lambda: _env("EXOTEL_ACCOUNT_SID"))
+    # Regional API host: api.in.exotel.com (Mumbai) or api.exotel.com (Singapore).
+    EXOTEL_SUBDOMAIN: str = Field(default_factory=lambda: _env("EXOTEL_SUBDOMAIN", "api.in.exotel.com"))
+    # Your ExoPhone (virtual number) the farmer dials, and the ExoML app/flow id whose
+    # application URL points at POST /api/v1/ivr/incoming.
+    EXOTEL_PHONE_NUMBER: str = Field(default_factory=lambda: _env("EXOTEL_PHONE_NUMBER"))
+    EXOTEL_APP_ID: str = Field(default_factory=lambda: _env("EXOTEL_APP_ID"))
+    # Exotel does not sign ExoML/StatusCallback webhooks. This shared secret is appended to
+    # every action URL we return to Exotel (?t=…) and is required on every webhook we accept.
+    EXOTEL_WEBHOOK_SECRET: str = Field(default_factory=lambda: _env("EXOTEL_WEBHOOK_SECRET"))
+    EXOTEL_VALIDATE_WEBHOOK: bool = Field(default_factory=lambda: _bool("EXOTEL_VALIDATE_WEBHOOK", True))
+    # Extra check: confirm an unknown CallSid against Exotel's authenticated Call Details API.
+    # Costs one round trip per call; enable when the webhook secret may not stay private.
+    EXOTEL_VERIFY_CALL_SID: bool = Field(default_factory=lambda: _bool("EXOTEL_VERIFY_CALL_SID", False))
+    EXOTEL_TIMEOUT_SECONDS: float = Field(default_factory=lambda: _float("EXOTEL_TIMEOUT_SECONDS", 10.0))
+    # Public https base Exotel reaches (e.g. https://abc.ngrok-free.app) — used to build the
+    # absolute ExoML action URLs. Required for real inbound calls.
     PUBLIC_API_BASE_URL: str = Field(default_factory=lambda: _env("PUBLIC_API_BASE_URL"))
 
     IVR_ENABLED: bool = Field(default_factory=lambda: _bool("IVR_ENABLED", True))
@@ -244,24 +267,47 @@ def validate_for_environment(s: Settings) -> List[str]:
     if s.SEED_DEMO_DATA and s.DATA_MODE == "live":
         errors.append("SEED_DEMO_DATA is not allowed with DATA_MODE=live")
 
-    # --- Telephony / IVR -------------------------------------------------------------------
-    if s.TELEPHONY_PROVIDER not in {"twilio", "mock"}:
-        errors.append("TELEPHONY_PROVIDER must be 'twilio' or 'mock'")
+    # --- Telephony / IVR (Exotel) -----------------------------------------------------------
+    if s.TELEPHONY_PROVIDER not in {"exotel", "mock"}:
+        errors.append("TELEPHONY_PROVIDER must be 'exotel' or 'mock'")
     if s.DEMO_MODE and s.is_production:
         errors.append("DEMO_MODE is forbidden in production")
-    if s.is_production:
-        if s.TELEPHONY_PROVIDER == "mock":
-            errors.append("Production requires TELEPHONY_PROVIDER=twilio (mock is for demo/tests only)")
+    # EXOTEL_ENABLED is an explicit switch: it must agree with TELEPHONY_PROVIDER so a real
+    # number can never be dialled by accident, and a mock can never be mistaken for a live
+    # integration. There is no silent fallback from "real Exotel failed" to fake data.
+    if s.TELEPHONY_PROVIDER == "exotel" and not s.EXOTEL_ENABLED:
+        errors.append("TELEPHONY_PROVIDER=exotel requires EXOTEL_ENABLED=true "
+                      "(use TELEPHONY_PROVIDER=mock for local development)")
+    if s.TELEPHONY_PROVIDER == "mock" and s.EXOTEL_ENABLED:
+        errors.append("EXOTEL_ENABLED=true requires TELEPHONY_PROVIDER=exotel")
+    if s.TELEPHONY_PROVIDER == "exotel" and s.EXOTEL_ENABLED:
+        for key in ("EXOTEL_API_KEY", "EXOTEL_API_TOKEN", "EXOTEL_ACCOUNT_SID", "EXOTEL_PHONE_NUMBER"):
+            if not getattr(s, key):
+                errors.append(f"TELEPHONY_PROVIDER=exotel requires {key}")
         if s.IVR_ENABLED:
-            for key in ("TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN", "TWILIO_PHONE_NUMBER", "PUBLIC_API_BASE_URL"):
-                if not getattr(s, key):
-                    errors.append(f"IVR_ENABLED in production requires {key}")
-            if not s.PUBLIC_API_BASE_URL.lower().startswith("https://"):
-                errors.append("PUBLIC_API_BASE_URL must be https:// in production (Twilio refuses plain-http webhooks)")
-            if not s.TWILIO_VALIDATE_WEBHOOK:
-                errors.append("Production requires TWILIO_VALIDATE_WEBHOOK=true")
-    elif s.IVR_ENABLED and s.TELEPHONY_PROVIDER == "twilio" and s.TWILIO_VALIDATE_WEBHOOK and not s.TWILIO_AUTH_TOKEN:
-        warnings.append("TWILIO_AUTH_TOKEN not set: Twilio webhook signature validation cannot run; inbound requests will be rejected until it is configured (or set TWILIO_VALIDATE_WEBHOOK=false for local development)")
+            if not s.PUBLIC_API_BASE_URL:
+                errors.append("IVR_ENABLED with a live Exotel number requires PUBLIC_API_BASE_URL "
+                              "(ExoML action URLs must be absolute)")
+            elif s.is_production and not s.PUBLIC_API_BASE_URL.lower().startswith("https://"):
+                errors.append("PUBLIC_API_BASE_URL must be https:// in production "
+                              "(Exotel reaches the ExoML application URL over the public internet)")
+        if s.EXOTEL_VALIDATE_WEBHOOK and not s.EXOTEL_WEBHOOK_SECRET:
+            errors.append("EXOTEL_VALIDATE_WEBHOOK=true requires EXOTEL_WEBHOOK_SECRET "
+                          "(Exotel does not sign webhooks; this secret is the trust anchor)")
+        if s.is_production:
+            if not s.EXOTEL_VALIDATE_WEBHOOK:
+                errors.append("Production requires EXOTEL_VALIDATE_WEBHOOK=true")
+            if not s.EXOTEL_WEBHOOK_SECRET or len(s.EXOTEL_WEBHOOK_SECRET) < 32:
+                errors.append("Production requires EXOTEL_WEBHOOK_SECRET of at least 32 characters")
+            if not s.EXOTEL_APP_ID:
+                errors.append("Production requires EXOTEL_APP_ID (the ExoML app whose URL points "
+                              "at POST /api/v1/ivr/incoming)")
+    elif s.IVR_ENABLED and s.EXOTEL_VALIDATE_WEBHOOK and not s.EXOTEL_WEBHOOK_SECRET:
+        warnings.append("EXOTEL_WEBHOOK_SECRET not set: Exotel webhooks cannot be verified and will "
+                        "be rejected (set it, or set EXOTEL_VALIDATE_WEBHOOK=false for local development)")
+    if s.EXOTEL_VERIFY_CALL_SID and not (s.EXOTEL_API_KEY and s.EXOTEL_API_TOKEN and s.EXOTEL_ACCOUNT_SID):
+        warnings.append("EXOTEL_VERIFY_CALL_SID=true but Exotel API credentials are not configured; "
+                        "call-id verification will fail closed")
     if s.STT_PROVIDER not in {"", "none", "openai_whisper"}:
         errors.append("STT_PROVIDER must be one of '', 'none', 'openai_whisper'")
     if s.STT_PROVIDER == "openai_whisper" and not s.STT_API_KEY:

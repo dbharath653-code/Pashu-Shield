@@ -2,10 +2,10 @@
 
 Architecture: all 8 Pashu-Shield languages are first-class (selection menu, session and
 survey `language` fields, dashboard labels, notification language). Prompt sets below are
-fully translated for en/hi/mr; for languages without a full prompt set the engine falls
+fully translated for en/hi/mr; for a language without a full prompt set the engine falls
 back to the English text per prompt while keeping the selected language stored everywhere
-else (Twilio speech synthesis coverage varies per language — see IVR_SETUP.md).
-The welcome line and the language menu are always English on first contact (spec).
+else (Exotel TTS coverage varies per language — see docs/EXOTEL_SETUP.md).
+The welcome line and the language menu are always English on first contact.
 """
 from __future__ import annotations
 
@@ -47,8 +47,14 @@ _PROMPTS: Dict[str, Dict[str, str]] = {
         "duration": "How long have symptoms been present? Press 1 for less than a day, 2 for 1 to 2 days, 3 for 3 to 7 days, 4 for more than a week, 5 if you are not sure.",
         "deaths": "Have any animals died? Enter the number of deaths using the keypad, then press hash. Enter 0 if none.",
         "vaccination": "Are the animals vaccinated? Press 1 for Yes, 2 for No, 3 if you do not know.",
+        "main_menu": "Press 1 to report a sick animal. Press 2 to speak to a veterinarian. Press 3 to check the status of your report. Press 0 for an emergency.",
+        "emergency_intro": "You have selected the emergency option. Please answer the next few questions. Your request will be marked as an emergency and a veterinarian will be alerted. A diagnosis still has to be made by a veterinarian.",
         "location": "What is your village or location? Say your village name after the tone, or press 1 to use your registered village.",
+        "location_dtmf": "For your location, press 1 to use your registered village, or press 2 if you are calling from a different place.",
         "confirm": "Please confirm. Press 1 to submit this report, 2 to start the survey again, or 9 to cancel.",
+        "case_status": "Your most recent case is {case_number}. Its status is {status} and the triage risk level is {risk}. This is a preliminary assessment, not a confirmed diagnosis. Goodbye.",
+        "case_status_none": "We do not have any report or case recorded for your account yet. To report a sick animal, please call again and press 1. Goodbye.",
+        "case_status_unverified": "We could not match this number to a registered Pashu Shield account, so we cannot share case details over the phone. Please use the Pashu Shield app or call helpline 1962. Goodbye.",
         "invalid": "Sorry, that is not a valid option. ",
         "too_many_attempts": "We still did not understand the answer, so we will leave that answer unknown. ",
         "survey_aborted": "We could not complete the survey. Your request has been added to the callback queue and a veterinarian will call you back.",
@@ -68,8 +74,14 @@ _PROMPTS: Dict[str, Dict[str, str]] = {
         "duration": "लक्षण कितने समय से हैं? एक दिन से कम हेतु 1, 1 से 2 दिन हेतु 2, 3 से 7 दिन हेतु 3, एक सप्ताह से अधिक हेतु 4, अनिश्चित हो तो 5 दबाएँ।",
         "deaths": "क्या कोई पशु मरा है? मृत्यु की संख्या कीपैड पर दर्ज करें, फिर हैश दबाएँ। कोई नहीं तो 0 दबाएँ।",
         "vaccination": "क्या पशुओं का टीकाकरण हुआ है? हाँ हेतु 1, नहीं हेतु 2, नहीं पता हेतु 3 दबाएँ।",
+        "main_menu": "बीमार पशु की रिपोर्ट के लिए 1 दबाएँ। पशु चिकित्सक से बात करने के लिए 2 दबाएँ। अपनी रिपोर्ट की स्थिति जानने के लिए 3 दबाएँ। आपातकाल के लिए 0 दबाएँ।",
+        "emergency_intro": "आपने आपातकाल विकल्प चुना है। कृपया अगले कुछ प्रश्नों के उत्तर दें। आपका अनुरोध आपातकाल के रूप में दर्ज होगा और पशु चिकित्सक को सूचित किया जाएगा। निदान फिर भी पशु चिकित्सक ही करेंगे।",
         "location": "आपका गाँव या स्थान क्या है? टोन के बाद अपना गाँव बोलें, या पंजीकृत गाँव के लिए 1 दबाएँ।",
+        "location_dtmf": "अपने स्थान के लिए, पंजीकृत गाँव उपयोग करने हेतु 1 दबाएँ, या किसी अन्य स्थान से कॉल कर रहे हों तो 2 दबाएँ।",
         "confirm": "कृपया पुष्टि करें। रिपोर्ट भेजने के लिए 1, सर्वेक्षण फिर से शुरू करने के लिए 2, रद्द करने के लिए 9 दबाएँ।",
+        "case_status": "आपका सबसे हाल का केस {case_number} है। इसकी स्थिति {status} है और ट्रायेज जोखिम स्तर {risk} है। यह प्रारंभिक आकलन है, पुष्टि निदान नहीं। नमस्ते।",
+        "case_status_none": "आपके खाते में अभी कोई रिपोर्ट या केस दर्ज नहीं है। बीमार पशु की रिपोर्ट के लिए फिर कॉल करें और 1 दबाएँ। नमस्ते।",
+        "case_status_unverified": "यह नंबर किसी पंजीकृत पशु शील्ड खाते से मेल नहीं खाता, इसलिए हम फोन पर केस विवरण साझा नहीं कर सकते। कृपया पशु शील्ड ऐप उपयोग करें या 1962 पर कॉल करें। नमस्ते।",
         "invalid": "क्षमा करें, यह वैकल्पिक विकल्प नहीं है। ",
         "too_many_attempts": "उत्तर समझ नहीं आया, इसलिए वह उत्तर अज्ञात रहेगा। ",
         "survey_aborted": "सर्वेक्षण पूरा नहीं हो सका। आपका अनुरोध कॉलबैक सूची में जोड़ दिया गया है और पशु चिकित्सक आपको कॉल करेंगे।",
@@ -89,8 +101,14 @@ _PROMPTS: Dict[str, Dict[str, str]] = {
         "duration": "लक्षणे किती वेळापासून आहेत? एका दिवसापेक्षा कमी: 1, 1 ते 2 दिवस: 2, 3 ते 7 दिवस: 3, एका आठवड्यापेक्षा जास्त: 4, खात्री नसेल तर 5 दाबा.",
         "deaths": "कोणतेही जनावर मेले आहे का? मृत्यू संख्या कीपॅडवर टाइप करा आणि हॅश दाबा. कोणी नसेल तर 0 दाबा.",
         "vaccination": "जनावरांना लसीकरण झाले आहे का? होय: 1, नाही: 2, माहीत नाही: 3 दाबा.",
+        "main_menu": "आजारी जनावराचा अहवाल देण्यासाठी 1 दाबा. पशुवैद्यांशी बोलण्यासाठी 2 दाबा. तुमच्या अहवालाची स्थिती जाणण्यासाठी 3 दाबा. आणीबाणीसाठी 0 दाबा.",
+        "emergency_intro": "तुम्ही आणीबाणी पर्याय निवडला आहे. कृपया पुढील काही प्रश्नांची उत्तरे द्या. तुमची विनंती आणीबाणी म्हणून नोंदवली जाईल आणि पशुवैद्यांना कळवले जाईल. निदान मात्र पशुवैद्यच करतील.",
         "location": "तुमचे गाव किंवा ठिकाण कोणते? टोननंतर तुमचे गाव सांगा, किंवा नोंदणीकृत गावासाठी 1 दाबा.",
+        "location_dtmf": "तुमच्या ठिकाणासाठी, नोंदणीकृत गाव वापरण्यासाठी 1 दाबा, किंवा दुसऱ्या ठिकाणाहून कॉल करत असाल तर 2 दाबा.",
         "confirm": "कृपया खात्री करा. अहवाल पाठवण्यासाठी 1, सर्वेक्षण पुन्हा सुरू करण्यासाठी 2, रद्द करण्यासाठी 9 दाबा.",
+        "case_status": "तुमची अलीकडील केस {case_number} आहे. तिची स्थिती {status} आहे आणि ट्रायेज धोका पातळी {risk} आहे. ही प्राथमिक पातळी आहे, निश्चित निदान नाही. निरोग.",
+        "case_status_none": "तुमच्या खात्यात अद्याप कोणताही अहवाल किंवा केस नोंदलेला नाही. आजारी जनावराचा अहवाल देण्यासाठी पुन्हा कॉल करा आणि 1 दाबा. निरोग.",
+        "case_status_unverified": "हा नंबर कोणत्याही नोंदणीकृत पशु शील्ड खात्याशी जुळत नाही, म्हणून आम्ही फोनवर केस तपशील देऊ शकत नाही. कृपया पशु शील्ड ॲप वापरा किंवा 1962 वर कॉल करा. निरोग.",
         "invalid": "माफ करा, हा पर्याय वैध नाही. ",
         "too_many_attempts": "उत्तर समजले नाही, त्यामुळे ते अज्ञात राहील. ",
         "survey_aborted": "सर्वेक्षण पूर्ण होऊ शकले नाही. तुमची विनंती कॉलबॅक यादीत जोडली आहे आणि पशुवैद्य तुम्हाला कॉल करतील.",

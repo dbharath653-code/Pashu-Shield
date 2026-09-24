@@ -778,15 +778,15 @@ class Job(Base):
 
 
 # ----------------------------------------------------------------------------------------
-# Telephony / inbound IVR (Twilio)
+# Telephony / inbound IVR (provider-agnostic; Exotel is the configured transport)
 # ----------------------------------------------------------------------------------------
 class CallSession(Base):
-    """One farmer phone call through the IVR (inbound Twilio call or DEMO simulation).
+    """One farmer phone call through the IVR (a real inbound Exotel call or a DEMO simulation).
 
     `status` is the call state machine — see services/telephony/call_router.py:
-    INBOUND -> IDENTIFIED -> LANGUAGE_SELECTED -> VET_SEARCH -> VET_DIALING ->
-    VET_CONNECTED/BRIDGED -> SURVEY -> CONFIRMATION -> REPORT_CREATED -> TRIAGED ->
-    CALLBACK_REQUESTED -> COMPLETED | FAILED
+    INBOUND -> IDENTIFIED -> LANGUAGE_SELECTED -> MENU_SELECTED -> {VET_SEARCH ->
+    VET_DIALING -> VET_CONNECTED/BRIDGED | SURVEY -> CONFIRMATION -> REPORT_CREATED ->
+    TRIAGED | CASE_STATUS} -> CALLBACK_REQUESTED -> COMPLETED | FAILED
     """
     __tablename__ = "call_sessions"
     __table_args__ = (
@@ -794,12 +794,14 @@ class CallSession(Base):
     )
 
     id = Column(String(64), primary_key=True, index=True)
-    provider = Column(String(32), default="twilio", nullable=False)  # twilio | mock
-    provider_call_id = Column(String(64), unique=True, index=True, nullable=False)  # Twilio CallSid / mock id
+    provider = Column(String(32), default="exotel", nullable=False)  # exotel | mock
+    provider_call_id = Column(String(64), unique=True, index=True, nullable=False)  # Exotel CallSid / mock id
     caller_phone = Column(String(32), index=True, nullable=True)
-    to_phone = Column(String(32), nullable=True)  # our Twilio number
+    to_phone = Column(String(32), nullable=True)  # our ExoPhone (virtual number)
     direction = Column(String(16), default="INBOUND", nullable=False)
     language = Column(String(8), nullable=True)  # selected IVR language (en/mr/hi/...)
+    ivr_menu_option = Column(String(16), nullable=True)  # 1 report | 2 veterinarian | 3 case status | 0 emergency
+    is_emergency = Column(Boolean, default=False, nullable=False)  # caller pressed 0 (risk is still triage-decided)
     district = Column(String(128), nullable=True, index=True)  # stamped from farmer profile / report (may be "Unknown")
     status = Column(String(32), default="INBOUND", nullable=False, index=True)
     farmer_id = Column(String(64), ForeignKey("users.id"), nullable=True, index=True)  # matched by phone (signal only)
@@ -838,7 +840,9 @@ class CallTranscript(Base):
     confidence = Column(Float, nullable=True)
     language = Column(String(8), nullable=True)
     source = Column(String(32), default="STT", nullable=False)  # STT | MOCK | MANUAL
-    created_at = Column(DateTime, default=utcnow)
+    # index=True matches the index migration 0003 already creates on this column; without it
+    # `alembic check` reports model/schema drift.
+    created_at = Column(DateTime, default=utcnow, index=True)
 
 
 class IVRSurvey(Base):

@@ -1,64 +1,69 @@
 """Mock telephony provider — complete IVR testing without a real telephone call.
 
 Used by:
-  * automated tests (full INBOUND -> LANGUAGE -> SURVEY -> REPORT -> TRIAGE -> CALLBACK flow)
-  * DEMO_MODE "Simulate Incoming Farmer Call" (sessions are flagged is_simulated=True and
-    always labelled DEMO / SIMULATED — never presented as a real Twilio call).
+  * automated tests (full INBOUND -> LANGUAGE -> MENU -> SURVEY -> REPORT -> TRIAGE ->
+    CALLBACK flow, and the veterinarian-bridge branch),
+  * ``DEMO_MODE`` "Simulate Incoming Farmer Call" (sessions are flagged ``is_simulated=True``
+    and always labelled DEMO / SIMULATED — never presented as a real Exotel call).
 
-Webhook "signature" for the mock is a shared secret header `X-Mock-Signature` compared
-constant-time against TWILIO_WEBHOOK_SECRET (when that secret is set).
+The mock subclasses :class:`ExotelProvider` because it speaks exactly the same wire format
+and reads exactly the same Exotel parameter names (``CallSid``, ``From``, ``To``, ``digits``,
+``DialCallStatus``, ``Status``) — so tests exercise the production parsing path. Only the
+trust check and the recording bytes are simulated, and both are labelled as such.
 """
 from __future__ import annotations
 
 import hashlib
 import hmac
+import struct
 import uuid
-from typing import Any, Dict, Optional, Tuple
+from typing import Dict, Optional, Tuple
 
 from backend.config import settings
-from backend.services.telephony.base import TelephonyProvider, WebhookVerificationError
+from backend.services.telephony.base import WebhookVerificationError
+from backend.services.telephony.exotel_provider import ExotelProvider
+
+# 8kHz mono 8-bit silence: a clearly synthetic recording, never passed off as real audio.
+_SILENCE_SAMPLES = 8000
 
 
-class MockTelephonyProvider(TelephonyProvider):
+class MockTelephonyProvider(ExotelProvider):
     name = "mock"
     is_mock = True
+    secret_header = "X-Mock-Signature"
 
-    # Outbound IS supported in the mock: place_outbound_call records the attempt and
-    # the call_router drives the no-answer/busy/answer scenario deterministically.
-    @property
-    def supports_outbound(self) -> bool:
-        return True
-
-    @property
-    def supports_recording(self) -> bool:
-        return True
-
-    def validate_webhook(self, raw_body: bytes, params: Dict[str, str], signature: Optional[str], url: str) -> None:
-        secret = settings.TWILIO_WEBHOOK_SECRET
-        if not secret:
+    def validate_webhook(self, raw_body: bytes, params: Dict[str, str], secret: Optional[str]) -> None:
+        expected = settings.EXOTEL_WEBHOOK_SECRET
+        if not expected:
             return  # mock: no shared secret configured -> open (tests / local demo)
-        if not signature:
-            raise WebhookVerificationError("missing X-Mock-Signature header")
-        expected = hmac.new(secret.encode(), raw_body, hashlib.sha256).hexdigest()
-        if not hmac.compare_digest(expected, signature):
-            raise WebhookVerificationError("invalid X-Mock-Signature")
+        # Either the ExoML-style URL token, or an HMAC over the canonical body so a raw
+        # replayed webhook can be exercised in tests.
+        if secret and hmac.compare_digest(expected.strip(), secret.strip()):
+            return
+        body_signature = params.get("MockSignature")
+        if body_signature and hmac.compare_digest(
+                hmac.new(expected.encode(), raw_body, hashlib.sha256).hexdigest(), body_signature):
+            return
+        raise WebhookVerificationError("invalid mock webhook secret")
 
-    def get_call_sid(self, params: Dict[str, str]) -> Optional[str]:
-        return params.get("CallSid") or params.get("callSid") or params.get("MockCallId")
-
-    def get_caller_number(self, params: Dict[str, str]) -> Optional[str]:
-        return params.get("From") or params.get("from")
-
-    async def place_outbound_call(self, to_number: str, webhook_url: str, status_callback: Optional[str] = None) -> Dict[str, Any]:
-        # Deterministic mock: the caller (call_router) decides answered/busy/no-answer from
-        # the scenario attached to the CallSession — no network involved.
-        return {"ok": True, "provider_call_id": f"MOCK-{uuid.uuid4().hex[:12].upper()}", "error": None}
+    async def verify_call_id(self, call_id: str) -> bool:
+        return bool(call_id)  # mock call ids are ours by construction
 
     async def download_recording(self, recording_url: str) -> Tuple[bytes, str]:
-        # Synthetic short WAV silence — mock recordings are labels, not real audio.
-        # 44-byte header + 8000 samples of silence at 8kHz mono 8-bit.
-        import struct
+        header = (b"RIFF" + struct.pack("<I", 36 + _SILENCE_SAMPLES) + b"WAVEfmt "
+                  + struct.pack("<IHHIIHH", 16, 1, 1, 8000, 8000, 1, 8) + b"data"
+                  + struct.pack("<I", _SILENCE_SAMPLES))
+        return header + (b"\x80" * _SILENCE_SAMPLES), "audio/wav"
 
-        data_size = 8000
-        header = b"RIFF" + struct.pack("<I", 36 + data_size) + b"WAVEfmt " + struct.pack("<IHHIIHH", 16, 1, 1, 8000, 8000, 1, 8) + b"data" + struct.pack("<I", data_size)
-        return header + (b"\x80" * data_size), "audio/wav"
+
+def mock_call_id() -> str:
+    """Identifier shape used by the mock provider (never confused with a real CallSid)."""
+    return f"MOCK-{uuid.uuid4().hex[:12].upper()}"
+
+
+def mock_signature(raw_body: bytes) -> str:
+    """Body-derived signature accepted by the mock provider when a shared secret is set."""
+    return hmac.new(settings.EXOTEL_WEBHOOK_SECRET.encode(), raw_body, hashlib.sha256).hexdigest()
+
+
+__all__ = ["MockTelephonyProvider", "mock_call_id", "mock_signature", "WebhookVerificationError"]
